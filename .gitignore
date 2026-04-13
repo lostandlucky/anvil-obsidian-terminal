@@ -4,7 +4,8 @@ logs/
 .wdio-logs/
 *.log
 
-# Build output (Phase 1+)
-main.js
-main.js.map
+# Build output
+/main.js
+/main.js.map
+/styles.css
 dist/
