@@ -101,6 +101,14 @@ Strictly sequential. Phase 3's picker UI could start in parallel with late Phase
 - Python 3 availability (if chosen)
 - Shell environment inheritance (PATH, env vars, working directory)
 
+**Notes from Phase 1 (see `phase-1-completion.md` for full detail):**
+- Replace `TerminalView.handleInput` with a `TerminalBackend` interface (`write`, `onData`, `resize`, `close`). Expected location: `src/pty/`. The view should not know whether it's talking to a mock or a real shell.
+- The Obsidian `Scope` hotkey guard is load-bearing and must not be removed. It only blocks hotkey *actions*, not text input — Ctrl-C, Ctrl-Z, Ctrl-D etc. still reach the PTY via xterm's textarea.
+- Real Ctrl-C from a user will generate an xterm `onData("\x03")` event. Wire that to the PTY write path; don't short-circuit it at the view layer.
+- SIGWINCH: xterm `onResize` already fires on container resize via `ResizeObserver` in `xterm-host.ts`. Backend needs to accept `resize(cols, rows)` and propagate to the pty.
+- `main.js` bundle is already ~340KB from xterm + fit addon. Factor that into any node-pty-with-prebuilts size budget.
+- E2E harness fully works against the fixture vault at `tests/e2e/fixtures/vault/`. Phase 2 can add real-shell e2e tests on the same harness — no infra work needed.
+
 ---
 
 ## Phase 3: Profile Picker, Session Management + Multi-Instance
