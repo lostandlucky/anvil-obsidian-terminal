@@ -13,6 +13,7 @@ export const config: WebdriverIO.Config = {
       "wdio:obsidianOptions": {
         installerVersion: "1.12.7",
         vault: "./tests/e2e/fixtures/vault",
+        plugins: ["."],
       },
     },
   ],

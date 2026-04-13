@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, Scope, WorkspaceLeaf } from "obsidian";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
 import { runCommand, welcome } from "../terminal/mock-repl";
 
@@ -7,7 +7,10 @@ export const TERMINAL_VIEW_TYPE = "obsidian-terminal-view";
 export class TerminalView extends ItemView {
   private host: XtermHost | null = null;
   private buffer = "";
-  private keydownCapture: ((ev: KeyboardEvent) => void) | null = null;
+  private terminalScope: Scope | null = null;
+  private scopePushed = false;
+  private focusInHandler: ((ev: FocusEvent) => void) | null = null;
+  private focusOutHandler: ((ev: FocusEvent) => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -37,29 +40,65 @@ export class TerminalView extends ItemView {
 
     host.onData((data) => this.handleInput(data));
 
-    this.keydownCapture = (ev: KeyboardEvent) => {
-      if (!container.contains(ev.target as Node)) return;
-      ev.stopPropagation();
+    this.terminalScope = new Scope(this.app.scope);
+    const swallow = () => false;
+    for (const mods of [
+      ["Mod"],
+      ["Mod", "Shift"],
+      ["Mod", "Alt"],
+      ["Mod", "Shift", "Alt"],
+      ["Ctrl"],
+      ["Ctrl", "Shift"],
+      ["Ctrl", "Alt"],
+      ["Alt"],
+    ] as const) {
+      this.terminalScope.register([...mods], null, swallow);
+    }
+
+    const pushScope = () => {
+      if (!this.scopePushed && this.terminalScope) {
+        this.app.keymap.pushScope(this.terminalScope);
+        this.scopePushed = true;
+      }
     };
-    this.containerEl.ownerDocument.addEventListener(
-      "keydown",
-      this.keydownCapture,
-      true,
-    );
+    const popScope = () => {
+      if (this.scopePushed && this.terminalScope) {
+        this.app.keymap.popScope(this.terminalScope);
+        this.scopePushed = false;
+      }
+    };
+
+    this.focusInHandler = (ev: FocusEvent) => {
+      if (container.contains(ev.target as Node)) pushScope();
+    };
+    this.focusOutHandler = (ev: FocusEvent) => {
+      const next = ev.relatedTarget as Node | null;
+      if (!next || !container.contains(next)) popScope();
+    };
+    container.addEventListener("focusin", this.focusInHandler);
+    container.addEventListener("focusout", this.focusOutHandler);
 
     requestAnimationFrame(() => host.fit());
     host.focus();
   }
 
   async onClose(): Promise<void> {
-    if (this.keydownCapture) {
-      this.containerEl.ownerDocument.removeEventListener(
-        "keydown",
-        this.keydownCapture,
-        true,
-      );
-      this.keydownCapture = null;
+    const container = this.containerEl.children[1] as HTMLElement | undefined;
+    if (container && this.focusInHandler) {
+      container.removeEventListener("focusin", this.focusInHandler);
     }
+    if (container && this.focusOutHandler) {
+      container.removeEventListener("focusout", this.focusOutHandler);
+    }
+    this.focusInHandler = null;
+    this.focusOutHandler = null;
+
+    if (this.scopePushed && this.terminalScope) {
+      this.app.keymap.popScope(this.terminalScope);
+      this.scopePushed = false;
+    }
+    this.terminalScope = null;
+
     this.host?.dispose();
     this.host = null;
     this.buffer = "";
