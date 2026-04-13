@@ -73,3 +73,14 @@ No writes to `/etc`, no sudo, no launchd, no LaunchAgents.
 ---
 
 **Status:** Audit complete and approved. Phase 0 proceeds to installing the package with the four conditions above.
+
+## Post-install notes (2026-04-13)
+
+After `npm install`, `npm audit` reports **6 high-severity transitive vulnerabilities**, all resolving to two root causes:
+
+- **lodash** (via `obsidian-launcher` → `wdio-obsidian-service`). CVEs are `_.template` code injection and `_.unset/_.omit` prototype pollution. Both require an attacker to feed malicious input into those specific lodash functions. In our use path — parsing trusted Obsidian release metadata in a local test run — neither is reachable.
+- **serialize-javascript** (via `mocha`). RCE via `RegExp.flags` and a DoS via crafted array-likes. Only matters if you're serializing untrusted data to JS strings, which mocha's test runner does not do against anything we control.
+
+**Assessment: accepted.** These are the sort of "high severity on paper, not reachable in our threat model" findings that `npm audit` surfaces routinely for dev tooling. Re-check on each Dependabot bump — if upstream ever updates `lodash` or the `serialize-javascript` chain, take the fix.
+
+Additionally, a handful of `npm warn EBADENGINE` warnings appeared from `@jest/*` packages (transitive) declaring support for Node `18/20/22/24+` but not `23.x`. Node 23 is a non-LTS odd version; the warnings are cosmetic — nothing actually breaks. Worth revisiting when we consider moving the project to Node 22 LTS or 24 LTS.

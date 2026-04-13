@@ -1,0 +1,10 @@
+node_modules/
+.obsidian-cache/
+logs/
+.wdio-logs/
+*.log
+
+# Build output (Phase 1+)
+main.js
+main.js.map
+dist/

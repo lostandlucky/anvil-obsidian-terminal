@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+    # Group all wdio-related updates so we review them as a set — they
+    # have to move in lockstep and reviewing them one-by-one is churn.
+    groups:
+      wdio:
+        patterns:
+          - "@wdio/*"
+          - "webdriverio"
+          - "wdio-obsidian-service"
+          - "wdio-obsidian-reporter"
