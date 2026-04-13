@@ -22,13 +22,45 @@ Steve wants a custom Obsidian plugin that embeds a real system terminal — not 
 ## Dependency Map
 
 ```
-Phase 1 → Phase 2 → Phase 3 → Phase 4
-              ↑
-        PTY backend spike
-        (between P1 and P2)
+Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4
+                        ↑
+                  PTY backend spike
+                  (between P1 and P2)
 ```
 
-Strictly sequential. Phase 3's picker UI could start in parallel with late Phase 2, but session features need a working PTY.
+Strictly sequential. Phase 3's picker UI could start in parallel with late Phase 2, but session features need a working PTY. Phase 0 gates everything — if the e2e harness spike fails, the testing strategy changes before Phase 1 begins.
+
+---
+
+## Phase 0: Test Harness Spike + Dependency Audit
+
+**Goal:** De-risk the entire testing strategy before any feature code is written. Prove that `wdio-obsidian-service` can stand up on macOS arm64 against a pinned Obsidian version, and audit the package's source since it runs in the test environment with filesystem and network access. This phase exists because the e2e harness is solo-maintained community tooling and `testing-approach.md` commits to it as infrastructure — that commitment needs evidence before Phase 1 builds on it.
+
+**Dependencies:** None.
+
+**Time box:** One working day for the smoke test. If it's not green by end-of-day, stop and execute the fallback documented in `testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2).
+
+**Scope:**
+1. **Source audit of `wdio-obsidian-service`.** Read the package's source on GitHub. Specifically check: what it downloads and from where, how it verifies the Obsidian binary (checksum? signature? bare HTTP?), what lifecycle hooks it runs in the test env, what it writes to disk outside the project directory. Record findings in `specs/terminal-plugin/phase-0-audit.md`. If anything looks actively unsafe, stop and reassess.
+2. **Pin versions.** Exact pins (not semver ranges) for `wdio-obsidian-service` in `package.json` and the Obsidian test binary version in the wdio config. Commit `package-lock.json`. Wire up Dependabot or Renovate against these so future upgrades come as reviewable PRs.
+3. **Smoke-test harness.** A single trivial e2e spec: launch Obsidian via the service, assert the workspace loaded, quit cleanly. No plugin code involved yet — this tests only the harness, on this machine, on this OS.
+4. **Vitest skeleton.** `npm test`, `npm run test:unit`, `npm run test:e2e` scripts exist and route correctly. One trivial unit test to confirm Vitest runs.
+5. **Document the setup.** Brief notes in `specs/terminal-plugin/phase-0-spec.md` on how to run each test level locally and what the pinned versions are.
+
+**Success criteria:**
+- Audit notes committed, with an explicit "safe to adopt / not safe to adopt" conclusion.
+- `wdio-obsidian-service` and Obsidian binary pinned to exact versions; Dependabot/Renovate config present.
+- Smoke e2e test runs green locally via `npm run test:e2e`.
+- Trivial Vitest unit test runs green via `npm run test:unit`.
+- `npm test` runs both in sequence.
+
+**Risk flags:**
+- Chromedriver / Electron / arm64 binary mismatches on macOS.
+- Obsidian binary download fails, is unverified, or is gated behind auth.
+- Audit uncovers something that makes the package unsafe to run (e.g. unverified downloads, arbitrary code execution outside the test sandbox).
+- Harness stands up but is flaky from the first run — flakiness now compounds later.
+
+**Exit condition if time-boxed out:** Document what was tried, what broke, and invoke the fallback. Phase 1 proceeds with unit tests + manual checklist only; Phase 2 reopens the e2e question.
 
 ---
 
@@ -36,7 +68,7 @@ Strictly sequential. Phase 3's picker UI could start in parallel with late Phase
 
 **Goal:** Get an Obsidian plugin that opens a pane with xterm.js rendering in it. No real shell yet — just prove that xterm.js works inside Obsidian's view system, handles resize, and captures keystrokes without Obsidian intercepting them. This retires all the Obsidian plugin API risk before adding PTY complexity.
 
-**Dependencies:** None.
+**Dependencies:** Phase 0 complete (or fallback invoked).
 
 **Success criteria:**
 - Plugin loads in Obsidian, command palette action opens a terminal pane
