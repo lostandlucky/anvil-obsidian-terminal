@@ -22,13 +22,10 @@ Steve wants a custom Obsidian plugin that embeds a real system terminal — not 
 ## Dependency Map
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4
-                        ↑
-                  PTY backend spike
-                  (between P1 and P2)
+Phase 0 → Phase 1 → Phase 2a → Phase 2b → Phase 3 → Phase 4
 ```
 
-Strictly sequential. Phase 3's picker UI could start in parallel with late Phase 2, but session features need a working PTY. Phase 0 gates everything — if the e2e harness spike fails, the testing strategy changes before Phase 1 begins.
+Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolation) and 2b (plugin integration, consumes 2a's binary). The split mirrors Phase 0 → Phase 1 — de-risk an unfamiliar component as a thing in itself before building on top of it. Phase 3's picker UI could start in parallel with late Phase 2b, but session features need a working PTY. Phase 0 gates everything — if the e2e harness spike fails, the testing strategy changes before Phase 1 begins.
 
 ---
 
@@ -82,32 +79,61 @@ Strictly sequential. Phase 3's picker UI could start in parallel with late Phase
 
 ---
 
-## Phase 2: PTY Backend Integration
+## Phase 2a: PTY Server Spike (Rust)
 
-**Goal:** Connect xterm.js to a real shell via a pseudoterminal. Lock the backend choice via a time-boxed spike at the start of this phase. By the end, the plugin runs a default shell with full PTY behavior — colors, interactive programs, Ctrl-C, terminal resize.
+**Goal:** Build a standalone Rust binary that creates a PTY, spawns a configurable shell, and exposes it over a localhost WebSocket. Verifiable in isolation with `wscat` — no Obsidian, no TypeScript, no plugin code. This phase de-risks the entire Rust + portable-pty + WebSocket architecture before any plugin integration work begins.
 
-**Dependencies:** Phase 1 complete. PTY backend decision made.
+**Dependencies:** Phase 1 complete. D1–D5 already resolved (see `phase-2a-pty-server-spec.md`): custom Rust binary on `portable-pty`, kill-on-close, login shell, vault-root cwd, cargo workspace at `pty-server/`.
+
+**Spec:** `specs/terminal-plugin/phase-2a-pty-server-spec.md`
+
+**Success criteria:**
+- `pty-server/` cargo workspace builds cleanly via `cargo build --release` on macOS arm64
+- `cargo test` covers the framing/protocol layer
+- `wscat` smoke test: connect to the binary, type `echo hello`, see `hello`
+- Resize messages translate to SIGWINCH (verifiable via `tput cols`)
+- Disconnecting the WebSocket kills the spawned shell within 1s; killing the binary leaves no orphans
+- `pty-server/PROTOCOL.md` documents the WebSocket protocol well enough to write a client without reading the Rust source
+- `docs/adr/0003-pty-backend.md` written and accepted (at the *end* of 2a, after the binary works — the ADR records a validated decision)
+- `Cargo.lock` committed; exact version pins in `Cargo.toml`
+
+**Risk flags:**
+- First-time Rust toolchain setup on the dev machine
+- WebSocket framing protocol design (binary vs JSON, single-frame vs multiplexed)
+- `portable-pty` API surface unfamiliarity
+- Codesigning / Gatekeeper on first binary launch (workaround: `xattr -d com.apple.quarantine`; proper fix in Phase 4)
+
+---
+
+## Phase 2b: PTY Plugin Integration
+
+**Goal:** Wire the 2a binary into Obsidian. Replace the mock REPL with a TS backend that talks to the binary over WebSocket, get full PTY behavior end-to-end inside the plugin, and ship the e2e suite that proves it.
+
+**Dependencies:** Phase 2a complete (binary, protocol, ADR-0003 all in place).
+
+**Spec:** `specs/terminal-plugin/phase-2b-plugin-integration-spec.md`
 
 **Success criteria:**
 - Commands execute in a real shell with correct output
 - ANSI colors and formatting work
 - Interactive programs work (vim opens, Ctrl-C interrupts)
 - Pane resize sends SIGWINCH, shell reflows correctly
-- Closing the view kills the shell process cleanly
+- Closing the view kills both the shell process and the `pty-server` binary cleanly
+- `npm run build` orchestrates `cargo build --release` and copies the binary into the plugin output dir
+- No regressions in the existing 19-test suite
 
 **Risk flags:**
-- node-pty Electron ABI mismatch (if chosen)
-- Rust binary first-launch UX (if chosen)
-- Python 3 availability (if chosen)
-- Shell environment inheritance (PATH, env vars, working directory)
+- Shell environment inheritance (PATH, env vars, working directory) — D4 should handle it but verify
+- WebSocket client / handshake races on plugin load
+- E2E test flakiness around process cleanup assertions (`kill -0` timing)
 
 **Notes from Phase 1 (see `phase-1-completion.md` for full detail):**
 - Replace `TerminalView.handleInput` with a `TerminalBackend` interface (`write`, `onData`, `resize`, `close`). Expected location: `src/pty/`. The view should not know whether it's talking to a mock or a real shell.
 - The Obsidian `Scope` hotkey guard is load-bearing and must not be removed. It only blocks hotkey *actions*, not text input — Ctrl-C, Ctrl-Z, Ctrl-D etc. still reach the PTY via xterm's textarea.
 - Real Ctrl-C from a user will generate an xterm `onData("\x03")` event. Wire that to the PTY write path; don't short-circuit it at the view layer.
-- SIGWINCH: xterm `onResize` already fires on container resize via `ResizeObserver` in `xterm-host.ts`. Backend needs to accept `resize(cols, rows)` and propagate to the pty.
-- `main.js` bundle is already ~340KB from xterm + fit addon. Factor that into any node-pty-with-prebuilts size budget.
-- E2E harness fully works against the fixture vault at `tests/e2e/fixtures/vault/`. Phase 2 can add real-shell e2e tests on the same harness — no infra work needed.
+- SIGWINCH: xterm `onResize` already fires on container resize via `ResizeObserver` in `xterm-host.ts`. Backend needs to accept `resize(cols, rows)` and propagate via the WebSocket to 2a's binary.
+- `main.js` bundle is already ~340KB from xterm + fit addon. The 2a binary lives alongside it as a separate file, not bundled.
+- E2E harness fully works against the fixture vault at `tests/e2e/fixtures/vault/`. 2b can add real-shell e2e tests on the same harness — no infra work needed.
 
 ---
 
@@ -115,7 +141,7 @@ Strictly sequential. Phase 3's picker UI could start in parallel with late Phase
 
 **Goal:** Add the VS Code-style profile picker that discovers shells and tmux sessions, the ability to attach to existing tmux sessions, and support for multiple concurrent terminal instances. These combine into one phase because they share the same abstraction — "what command to pass to the PTY" — and the same UI surface.
 
-**Dependencies:** Phase 2 complete. tmux installed for session features (graceful fallback if absent).
+**Dependencies:** Phase 2b complete. tmux installed for session features (graceful fallback if absent).
 
 **Success criteria:**
 - Picker modal lists discovered shells and running tmux sessions
