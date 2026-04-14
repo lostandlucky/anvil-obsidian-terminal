@@ -5,8 +5,8 @@ You have a built copy of the plugin and want to put it into an Obsidian vault by
 ## Prerequisites
 
 - macOS arm64 (see [ADR 0001](../adr/0001-macos-arm64-only.md))
-- A built plugin: `main.js`, `manifest.json`, and `styles.css` at the repo root. If those don't exist, run `npm install && npm run build` first.
-- A throwaway vault. **Do not install into your real vault.** Phase 1 has only been validated against the fixture vault under `tests/e2e/fixtures/vault/`.
+- A built plugin: `main.js`, `manifest.json`, `styles.css`, and `bin/pty-server` at the repo root. If those don't exist, run `npm install && npm run build` first.
+- A throwaway vault. **Do not install into your real vault.** The plugin has only been validated against the fixture vault under `tests/e2e/fixtures/vault/`.
 
 ## Steps
 
@@ -19,14 +19,15 @@ You have a built copy of the plugin and want to put it into an Obsidian vault by
 
    The folder name must match the plugin id in `manifest.json`, which is `obsidian-terminal-plugin`.
 
-2. **Copy the three plugin files in.**
+2. **Copy the plugin files and the `bin/` directory in.**
 
    ```bash
-   cp main.js manifest.json styles.css \
-      "$VAULT/.obsidian/plugins/obsidian-terminal-plugin/"
+   PLUGIN_DIR="$VAULT/.obsidian/plugins/obsidian-terminal-plugin"
+   cp main.js manifest.json styles.css "$PLUGIN_DIR/"
+   cp -R bin "$PLUGIN_DIR/"
    ```
 
-   Those three files are the entire plugin. There is nothing else to copy — `node_modules`, `src/`, `package.json` etc. all stay in the source repo.
+   `bin/pty-server` is the Rust binary that owns the actual PTY — the plugin will fail to start a terminal without it. Everything else (`node_modules`, `src/`, `package.json`) stays in the source repo.
 
 3. **Enable the plugin.** Open the vault in Obsidian.
 
@@ -34,7 +35,7 @@ You have a built copy of the plugin and want to put it into an Obsidian vault by
    - Then, in the same Settings page, find **Terminal** in the installed plugins list and toggle it on.
    - If **Terminal** does not appear in the list, fully quit and reopen the vault.
 
-4. **Open a terminal.** Cmd-P → **Open terminal**. A pane should appear with a cyan welcome banner and a green `mock>` prompt. Type `help` to confirm input is wired up.
+4. **Open a terminal.** Cmd-P → **Open terminal**. A pane should appear running your real shell, with its prompt (zsh `%`, bash `$`, …) at the vault root. Type `pwd` and `echo $SHELL` to confirm input is wired up.
 
 ## Updating an existing install
 
@@ -42,8 +43,13 @@ Re-run step 2 to copy the new build over. Then in Obsidian, disable and re-enabl
 
 ## Troubleshooting
 
-- **The plugin doesn't appear under Community plugins.** Check that the folder is named exactly `obsidian-terminal-plugin` (matching the id in `manifest.json`) and that all three files are inside it. Then quit and relaunch the vault.
-- **The pane opens blank or the buffer never shows the prompt.** Open the developer console (Cmd-Option-I) and check for errors. The most likely cause is a missing `styles.css`, which leaves xterm unstyled and the buffer invisible against the background.
+- **The plugin doesn't appear under Community plugins.** Check that the folder is named exactly `obsidian-terminal-plugin` (matching the id in `manifest.json`) and that the three plugin files plus the `bin/` directory are inside it. Then quit and relaunch the vault.
+- **The pane opens but immediately shows a red `[pty-backend] ...` line.** macOS Gatekeeper has quarantined the `pty-server` binary. Strip the quarantine bit once with:
+  ```bash
+  xattr -d com.apple.quarantine "$PLUGIN_DIR/bin/pty-server"
+  ```
+  Then close and reopen the terminal pane. The build script strips the quarantine bit on the in-repo copy automatically; `cp` re-attaches it on the destination.
+- **The pane opens blank or the buffer never shows the prompt.** Open the developer console (Cmd-Option-I) and check for errors. The most likely causes are a missing `styles.css` (leaves xterm unstyled and invisible against the background) or a missing `bin/pty-server` (the backend can't start).
 - **Cmd-P opens the Obsidian command palette while the terminal is focused.** That means the hotkey guard isn't engaging — usually because focus is on the pane chrome, not the xterm textarea. Click inside the terminal buffer and try again.
 
 ## Related

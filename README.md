@@ -6,7 +6,7 @@ A real system terminal embedded inside Obsidian. The end goal is a workspace whe
 
 **The vision.** Open a terminal pane in any Obsidian split. Pick a shell from a profile picker (zsh, bash, anything else you've configured). Reattach to a running tmux session if you have one. Run multiple terminal panes side by side. Real PTYs running real shells, not a fake widget.
 
-**Today (Phase 1).** xterm.js rendering inside an Obsidian `ItemView`, with an in-process mock REPL standing in for the real shell. Cmd-P → **Open terminal** opens the pane. You can type four commands (`help`, `echo`, `clear`, `colors`) and watch ANSI rendering work. The PTY backend, profile picker, multi-instance isolation, and tmux attach are all still ahead. See [docs/reference/architecture.md](docs/reference/architecture.md) for the full system map and what exists today vs. what's deferred.
+**Today (Phase 2b).** xterm.js rendering inside an Obsidian `ItemView`, wired to a real PTY-backed shell via a sidecar Rust binary (`bin/pty-server`). Cmd-P → **Open terminal** opens a pane running your `$SHELL` (or `/bin/zsh`) at the vault root, with working `vim`, `htop`, Ctrl-C, resize, and ANSI colors. The profile picker, multi-instance isolation, and tmux attach are still ahead. See [docs/reference/architecture.md](docs/reference/architecture.md) for the full system map and what exists today vs. what's deferred, [docs/reference/pty-backend.md](docs/reference/pty-backend.md) for the backend's surface, and [ADR 0003](docs/adr/0003-pty-backend.md) for why the backend is a separate Rust binary.
 
 **Who it's for.** Obsidian users on macOS Apple silicon who want a real terminal inside their vault and are willing to build the plugin from source. There is no community plugin store entry — see [ADR 0002](docs/adr/0002-manual-install-only.md). If that doesn't describe you, this isn't useful yet.
 
@@ -35,32 +35,35 @@ A real system terminal embedded inside Obsidian. The end goal is a workspace whe
    npm run build
    ```
 
-   This produces `main.js` and `styles.css` at the repo root, alongside the existing `manifest.json`. Those three files are the plugin.
+   This produces `main.js`, `styles.css`, and `bin/pty-server` (the Rust binary, compiled from the sibling `pty-server/` cargo package). Those, plus the existing `manifest.json`, are the plugin.
 
-3. **Install into a throwaway vault.** Pick (or create) a vault you don't care about — for example `/tmp/test-vault`. Then copy or symlink the three files into the vault's plugin folder:
+3. **Install into a throwaway vault.** Pick (or create) a vault you don't care about — for example `/tmp/test-vault`. Then copy the plugin files **and the `bin/` directory** into the vault's plugin folder:
 
    ```bash
-   mkdir -p /tmp/test-vault/.obsidian/plugins/obsidian-terminal-plugin
-   cp main.js manifest.json styles.css \
-      /tmp/test-vault/.obsidian/plugins/obsidian-terminal-plugin/
+   PLUGIN_DIR=/tmp/test-vault/.obsidian/plugins/obsidian-terminal-plugin
+   mkdir -p "$PLUGIN_DIR"
+   cp main.js manifest.json styles.css "$PLUGIN_DIR/"
+   cp -R bin "$PLUGIN_DIR/"
    ```
+
+   The `bin/pty-server` binary is the PTY backend — without it the terminal pane will fail to start. If macOS Gatekeeper blocks it on first launch, run `xattr -d com.apple.quarantine "$PLUGIN_DIR/bin/pty-server"` and reopen the pane. The build script strips the quarantine bit on the in-repo copy automatically; `cp` can re-attach it on the destination.
 
    Or, if you want edits to flow through without re-copying, see [docs/how-to/dev-setup.md](docs/how-to/dev-setup.md) for the symlink and dev-launch flow.
 
 4. **Enable the plugin.** Open the throwaway vault in Obsidian. Settings → Community plugins → enable community plugins if you haven't → toggle **Terminal** on. (You may need to restart the vault if it doesn't show up.)
 
-5. **Open a terminal.** Cmd-P → **Open terminal**. A new pane appears with a cyan welcome banner and a green `mock>` prompt.
+5. **Open a terminal.** Cmd-P → **Open terminal**. A new pane appears running your real shell, with its prompt (zsh `%`, bash `$`, …) at the vault root.
 
-6. **Try it.** Type:
+6. **Try it.** Run a few real commands:
 
    ```text
-   help
-   echo hello world
-   colors
-   clear
+   pwd
+   ls
+   echo $SHELL
+   vim
    ```
 
-   `help` lists the four mock commands. `colors` prints styled text so you can confirm ANSI rendering works. `clear` clears the buffer.
+   `pwd` should print the vault root. `vim` should take over the pane and exit cleanly with `:q`. Ctrl-C interrupts a running command. Drag the pane divider to resize — `tput cols` reflects the new width.
 
 That's it. If any of those steps misbehave, see the troubleshooting notes at the bottom of [docs/how-to/manual-install.md](docs/how-to/manual-install.md).
 
@@ -74,7 +77,8 @@ That's it. If any of those steps misbehave, see the troubleshooting notes at the
 
 ## Known limits
 
-- No real shell yet — the REPL is in-process and understands four commands. Phase 2.
+- No profile picker — the shell is hardcoded to `$SHELL` (or `/bin/zsh`), launched at the vault root. Phase 3.
+- No codesigning on the `pty-server` binary — fresh installs may need a one-shot `xattr -d com.apple.quarantine` until codesigning lands in Phase 4. See [ADR 0003](docs/adr/0003-pty-backend.md).
 - No settings tab. Nothing is configurable.
 - No multi-instance isolation guarantees. You can open more than one terminal pane, but it hasn't been stress-tested.
 - macOS arm64 only. See ADR 0001.
