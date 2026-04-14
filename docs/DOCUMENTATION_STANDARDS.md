@@ -12,9 +12,30 @@ Three quadrants are in scope:
 - **How-To.** Task-oriented guides under `docs/how-to/`. Titles are problems, not features: "How to run the e2e suite," not "The e2e suite." Second-person ("you"). Seed topics: dev setup, manual install, running tests.
 - **ADR.** Architecture decision records under `docs/adr/`. MADR-minimal format. See the ADRs section below.
 
-**Tutorial** is collapsed into the README (to be written). The README walks a first-time installer from zero to a running terminal pane; that's the tutorial. There is no separate `docs/tutorial/` folder.
+**Tutorial** is collapsed into the README (see `## README` below). The README walks a first-time installer from zero to a running terminal pane; that's the tutorial. There is no separate `docs/tutorial/` folder.
 
-**Explanation** is deferred. If you find yourself wanting to write one, stop and ask whether a how-to or an ADR would serve better. Architectural reasoning usually belongs in an ADR; conceptual walkthroughs usually belong in the README or a how-to intro paragraph.
+**Explanation** is deferred as a folder. The conceptual content that would normally live there has been *reassigned* to specific named slots so it doesn't fall through cracks:
+
+- **Project pitch and target audience** → the `## What this is` section of the root `README.md`.
+- **Architecture map** (what the moving pieces are and how they connect) → `docs/reference/architecture.md`. Stays factual and structural; no rationale, no narrative.
+- **Rationale and tradeoffs behind a decision** → an ADR under `docs/adr/`.
+- **Conceptual context for a specific task** → the intro paragraph of the relevant how-to.
+
+If you find yourself wanting to write a freeform Explanation doc, stop and figure out which of the four slots above it belongs in. Architectural reasoning is usually an ADR. The "what is this thing and what shape does it have" question splits between the README pitch and the architecture reference.
+
+## README
+
+The root `README.md` does several jobs at once. It is not a Diátaxis quadrant — it's a multipurpose contract. Required sections, in order:
+
+- **Title and tagline** — one or two lines under the title. What the product is in plain language. Not the manifest blurb.
+- **`## What this is`** — vision, current state, who it's for. The "what the fuck is this" answer. Includes a forward link to `docs/reference/architecture.md` for the shape of the system.
+- **Platform callout** — macOS arm64 only. Explicit because the code itself doesn't enforce it.
+- **`## What you need`** — prerequisites for a first-time installer.
+- **`## From zero to a running terminal pane`** — the tutorial role. A complete first run, beginning to end, no branching. Don't grow this beyond a true beginner's first pass; deeper install variants live in `docs/how-to/`.
+- **`## Where to go next`** — link-out hub to how-tos, ADRs, and this standards file.
+- **`## Known limits`** — what doesn't work yet, with links to the relevant ADRs.
+
+Keep the README tight. If a section bloats past an obvious skim, move detail into a how-to or reference doc and link out from here.
 
 ## Style and Tone
 
@@ -42,6 +63,8 @@ Location: `docs/reference/`. One file per logical unit. Candidate units as of th
 Reference is **hand-written**, not generated. No tsdoc/typedoc pipeline for now. The public surface is small enough that a docgen tool is overkill, and the cost of a wrong-but-confident generated doc is higher than the cost of writing prose. Revisit if the surface grows past ~10 units or if the plugin ever ships to the community store.
 
 Each reference file should tell the reader: what the thing is, what it exposes, what its inputs/outputs are, and what it does not do. No installation steps, no tutorials, no "why." Link out to a how-to or ADR for those.
+
+**Architecture overviews live here too.** `docs/reference/architecture.md` is a factual map of the system's moving pieces — what each part is, how they connect, what exists today vs. what's deferred. It stays Reference-shaped: third-person, no rationale, no narrative. Rationale belongs in an ADR. This is how the project handles the architecture-overview job that would normally live in an Explanation doc; see the Diátaxis Types Used section above for the full reassignment of deferred-Explanation content.
 
 ## How-Tos
 
