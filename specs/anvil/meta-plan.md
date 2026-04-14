@@ -192,6 +192,16 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 - **Theme integration.** xterm.js's theme is currently hardcoded to a near-transparent background and grey foreground. Phase 4 should read Obsidian CSS variables.
 - **The `onResize` double-fit issue** flagged in Phase 1's notes is still unaddressed. Phase 2b explicitly left it alone per spec boundary; Phase 4 should clean it up.
 
+### Notes from Phase 3
+
+- **`preserveTmuxDimensions` setting is persisted but not yet consumed.** The setting round-trips through the settings UI and `saveData`, but `main.ts:openPicker`'s tmux attach case always passes `["attach-session", "-t", <name>]` without adjusting for `-x`/`-y`. This is a minor D3 gap. Phase 4 should wire the setting into the `shellArgs` construction, reading pane cols/rows off the host at launch time.
+- **PtyBackend `shellArgs` login-flag interaction (Option A).** Caller-supplied `shellArgs` currently suppress the implicit `--shell-arg=-l` for zsh/bash. Flagged in-code. Revisit if any future caller needs login-shell + custom args simultaneously — may want an explicit `loginShell?: boolean` opt-in instead of "coupled to whether shellArgs was passed."
+- **Dependency maintenance kickoff was skipped for Phase 3 per D12.** Phase 4 is the first hook point. Start Phase 4 with a Dependabot scan on `wdio-obsidian-service` and an Obsidian test-binary version audit against current stable.
+- **Undocumented Obsidian APIs in production.** Three entry points rely on internal/undocumented API shape: `rootSplit.setDirection` + `workspace.createLeafInParent` (dock flip — already has a feature-detect fallback), and `SuggestModal.chooser.setSelectedItem` (default-shell pre-selection — no fallback, silently degrades to "arrow keys start at row 0"). Phase 4's dependency audit should re-verify these against whatever Obsidian version the test binary is pinned to.
+- **D8 tab-group isolation passes with no isolation code.** `tests/e2e/tab-isolation.e2e.ts` covers the quick-switcher/Cmd-click/split/drop entry points by asserting the terminal's xterm `offsetParent !== null` after the operation. If a future Obsidian change hides leaves via `visibility: hidden` instead of `display: none`, the test could false-pass — worth a manual re-judge if a user reports a regression.
+- **`usingFallback` flag on the bottom dock is unused.** `createBottomDock` exposes it but no caller reads it. Phase 4 polish could surface degraded-mode via the inline red ANSI pattern if that matters once real users are on it.
+- **`TerminalBackend` interface was not widened.** Multi-instance + tmux shellArgs both landed without touching the 6-method contract. If Phase 4 adds theme-plumbed features that need per-view config, keep resisting the urge to widen — `TerminalView.setState`/`getState` with a typed launch spec is the working pattern.
+
 ---
 
 ## Verification
