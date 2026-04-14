@@ -155,6 +155,14 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 - tmux server not running → `tmux list-sessions` fails
 - Resource consumption with multiple instances
 
+### Notes from Phase 2b
+
+- **One backend per terminal view, one binary per backend.** `PtyBackend` has no shared state — Phase 3's multi-instance model is "spawn another binary on another port," and that just works as-is.
+- **Profile selection lives between `TerminalView` and `PtyBackend`.** Today the view hardcodes `process.env.SHELL || "/bin/zsh"` and vault root as cwd. A profile picker should resolve to a `{shell, args, cwd, env}` object and pass it into `PtyBackend`'s constructor — the backend doesn't care where the values came from.
+- **The `TerminalBackend` interface is the right seam to mock for multi-instance unit tests.** A `MockBackend` that records writes and fires onData/onExit on demand would let Phase 3 test isolation between two terminals without standing up two real shells. Don't widen the interface unless the view needs it — today's 6 methods are all in active use.
+- **Backend errors render in the terminal pane**, not in modals. Reuse the `\r\n\x1b[31m[message]\x1b[0m\r\n` pattern when introducing new failure modes (profile not found, tmux session lost).
+- **Shell detection in `TerminalView.detectShell()`** is the existing single hardcode point — replace it (or wrap it) when wiring the profile picker.
+
 ---
 
 ## Phase 4: Settings, Polish + Distribution
@@ -174,6 +182,14 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 - Binary distribution through Obsidian's plugin ecosystem has no established pattern
 - Obsidian version updates can break native module builds
 - Community plugin review requirements (if pursued later)
+
+### Notes from Phase 2b
+
+- **Codesigning the binary is now blocking for distribution.** Phase 2b strips the macOS quarantine bit on the *repo's* copy of `bin/pty-server` at build time, but a downloaded GitHub release will get the bit re-attached. Phase 4 must either ship a signed/notarized binary or call out `xattr -d com.apple.quarantine` prominently in install docs.
+- **`bin/pty-server` must travel with the release artifact.** Phase 2b learned the hard way that `obsidian-launcher` only copies `manifest.json`, `main.js`, `styles.css` — same pattern as Obsidian's own plugin install flow. The Phase 4 release packaging must bundle the `bin/` directory into the release zip and confirm Obsidian places it next to `main.js` after install. If it doesn't, the runtime spawn path needs a fallback.
+- **Cargo Dependabot/Renovate.** Still not set up — flagged in 2a's notes, still not blocking. Worth bundling alongside the npm dependency hygiene work in Phase 4.
+- **Theme integration.** xterm.js's theme is currently hardcoded to a near-transparent background and grey foreground. Phase 4 should read Obsidian CSS variables.
+- **The `onResize` double-fit issue** flagged in Phase 1's notes is still unaddressed. Phase 2b explicitly left it alone per spec boundary; Phase 4 should clean it up.
 
 ---
 
