@@ -50,3 +50,7 @@ cp main.js manifest.json styles.css ~/.obsidian/plugins/obsidian-terminal-plugin
 ```
 
 Note: The symlink/copy path depends on which vault you're testing with. Adjust accordingly.
+
+## Documentation
+
+See `docs/DOCUMENTATION_STANDARDS.md` — run `/document` to execute.

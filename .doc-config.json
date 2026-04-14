@@ -1,0 +1,14 @@
+{
+  "standards_path": "docs/DOCUMENTATION_STANDARDS.md",
+  "docs_root": "docs/",
+  "adr_dir": "docs/adr/",
+  "exclude": [
+    "**/node_modules/**",
+    "**/build/**",
+    "main.js",
+    "specs/**"
+  ],
+  "capture_tools": {
+    "manual_areas": ["Obsidian plugin UI"]
+  }
+}
