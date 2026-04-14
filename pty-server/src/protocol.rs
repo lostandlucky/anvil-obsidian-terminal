@@ -5,12 +5,14 @@ use serde::Deserialize;
 #[derive(Debug)]
 pub enum ClientMessage {
     Input(Vec<u8>),
+    Resize { cols: u16, rows: u16 },
 }
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 enum ClientWire {
     Input { data: String },
+    Resize { cols: u16, rows: u16 },
 }
 
 impl ClientMessage {
@@ -24,6 +26,7 @@ impl ClientMessage {
                     .map_err(|e| anyhow!("invalid base64 in input: {e}"))?;
                 ClientMessage::Input(bytes)
             }
+            ClientWire::Resize { cols, rows } => ClientMessage::Resize { cols, rows },
         })
     }
 }
@@ -38,6 +41,20 @@ mod tests {
         let msg = ClientMessage::parse(json).unwrap();
         match msg {
             ClientMessage::Input(bytes) => assert_eq!(bytes, b"hello"),
+            _ => panic!("expected Input variant"),
+        }
+    }
+
+    #[test]
+    fn parses_resize_message() {
+        let json = r#"{"type":"resize","cols":120,"rows":40}"#;
+        let msg = ClientMessage::parse(json).unwrap();
+        match msg {
+            ClientMessage::Resize { cols, rows } => {
+                assert_eq!(cols, 120);
+                assert_eq!(rows, 40);
+            }
+            _ => panic!("expected Resize variant"),
         }
     }
 }
