@@ -46,6 +46,23 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unknown_type() {
+        let json = r#"{"type":"bogus","data":"xx"}"#;
+        assert!(ClientMessage::parse(json).is_err());
+    }
+
+    #[test]
+    fn rejects_malformed_json() {
+        assert!(ClientMessage::parse("{not json").is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_base64_in_input() {
+        let json = r#"{"type":"input","data":"!!!not base64!!!"}"#;
+        assert!(ClientMessage::parse(json).is_err());
+    }
+
+    #[test]
     fn parses_resize_message() {
         let json = r#"{"type":"resize","cols":120,"rows":40}"#;
         let msg = ClientMessage::parse(json).unwrap();
