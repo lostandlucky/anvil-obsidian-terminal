@@ -27,7 +27,7 @@
     "mocha": "11.7.5",
     "obsidian": "1.12.3",
     "tsx": "4.21.0",
-    "typescript": "5.9.3",
+    "typescript": "6.0.2",
     "vitest": "4.1.4",
     "wdio-obsidian-reporter": "3.0.2",
     "wdio-obsidian-service": "3.0.2",
