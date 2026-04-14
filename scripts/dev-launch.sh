@@ -25,7 +25,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-VAULT="${VAULT:-/tmp/terminal-plugin-test-vault}"
+VAULT="${VAULT:-/tmp/anvil-test-vault}"
 OBSIDIAN_VERSION="1.12.7"
 
 cd "$REPO"
@@ -51,7 +51,7 @@ echo ""
 # conf's "before" hook by copying the binary into place after the launcher
 # has had a moment to install the rest. Same failure pattern recorded in the
 # phase-2b completion notes under "Bumps".
-PLUGIN_DEST="$VAULT/.obsidian/plugins/obsidian-terminal-plugin"
+PLUGIN_DEST="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
 (
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     if [[ -f "$PLUGIN_DEST/main.js" ]]; then

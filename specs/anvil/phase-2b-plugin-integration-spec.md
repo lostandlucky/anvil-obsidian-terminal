@@ -83,11 +83,11 @@ What 2b **must not** touch:
 
 Read these before starting:
 
-- `specs/terminal-plugin/phase-2a-pty-server-spec.md` and `phase-2a-completion.md` — the binary you're consuming, and what was actually built.
+- `specs/anvil/phase-2a-pty-server-spec.md` and `phase-2a-completion.md` — the binary you're consuming, and what was actually built.
 - `pty-server/PROTOCOL.md` — the WebSocket protocol you're implementing the client side of.
-- `specs/terminal-plugin/meta-plan.md` — Phase 2b entry, shared constraints, dependency map.
-- `specs/terminal-plugin/phase-1-completion.md` — especially "Notes for downstream phases" (interface shape, hotkey constraint, double-fit, bundle size).
-- `specs/terminal-plugin/testing-approach.md` — boundary rule, RED/GREEN discipline, tricky e2e bits (especially focus management and async settling).
+- `specs/anvil/meta-plan.md` — Phase 2b entry, shared constraints, dependency map.
+- `specs/anvil/phase-1-completion.md` — especially "Notes for downstream phases" (interface shape, hotkey constraint, double-fit, bundle size).
+- `specs/anvil/testing-approach.md` — boundary rule, RED/GREEN discipline, tricky e2e bits (especially focus management and async settling).
 - `src/view/TerminalView.ts` — current `handleInput` shape and where the mock REPL is wired in.
 - `src/terminal/xterm-host.ts` — `onData`, `onResize`, `ResizeObserver` already in place.
 - `src/terminal/mock-repl.ts` + tests — reference for the seam shape.

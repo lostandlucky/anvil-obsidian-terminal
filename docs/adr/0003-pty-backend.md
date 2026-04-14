@@ -162,4 +162,4 @@ acceptance criteria pass:
 - WebSocket disconnect kills the spawned shell within 1 second ✓
 - SIGINT to the binary leaves no orphaned shell processes ✓
 
-See `specs/terminal-plugin/phase-2a-completion.md` for details.
+See `specs/anvil/phase-2a-completion.md` for details.

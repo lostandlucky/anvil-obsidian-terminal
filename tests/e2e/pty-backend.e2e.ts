@@ -1,6 +1,6 @@
 import { browser, expect, $ } from "@wdio/globals";
 
-const PLUGIN_ID = "obsidian-terminal-plugin";
+const PLUGIN_ID = "anvil-obsidian-terminal";
 const COMMAND_ID = `${PLUGIN_ID}:open-terminal`;
 const VIEW_TYPE = "obsidian-terminal-view";
 

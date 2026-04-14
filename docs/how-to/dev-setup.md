@@ -13,8 +13,8 @@ You want to edit the plugin source and see your changes inside Obsidian without 
 1. **Clone and install dependencies.**
 
    ```bash
-   git clone <this repo> obsidian-terminal-plugin
-   cd obsidian-terminal-plugin
+   git clone <this repo> anvil-obsidian-terminal
+   cd anvil-obsidian-terminal
    npm install
    ```
 
@@ -38,7 +38,7 @@ You want to edit the plugin source and see your changes inside Obsidian without 
    scripts/dev-launch.sh --no-build
    ```
 
-   To use your own scratch vault instead of `/tmp/terminal-plugin-test-vault`:
+   To use your own scratch vault instead of `/tmp/anvil-test-vault`:
 
    ```bash
    VAULT=~/dev/scratch-vault scripts/dev-launch.sh
@@ -48,7 +48,7 @@ You want to edit the plugin source and see your changes inside Obsidian without 
 
    ```bash
    mkdir -p /path/to/throwaway-vault/.obsidian/plugins
-   ln -s "$(pwd)" /path/to/throwaway-vault/.obsidian/plugins/obsidian-terminal-plugin
+   ln -s "$(pwd)" /path/to/throwaway-vault/.obsidian/plugins/anvil-obsidian-terminal
    ```
 
    Then enable the plugin in Obsidian: Settings → Community plugins → toggle **Terminal** on.

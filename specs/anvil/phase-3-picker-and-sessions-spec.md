@@ -125,12 +125,12 @@ Explicitly **not** in Phase 3 scope. These are Phase 4 or out-of-scope entirely.
 
 ### In-repo
 
-- `specs/terminal-plugin/meta-plan.md` — Phase 3 section + "Notes from Phase 2b" inside the Phase 3 entry. Pay particular attention to the load-bearing notes about `TerminalBackend`, `TerminalView.detectShell()`, and the inline-red error pattern.
-- `specs/terminal-plugin/testing-approach.md` — testing philosophy, harness capabilities and limits.
-- `specs/terminal-plugin/manual-test-checklist.md` — MT-005 through MT-012. This is the UAT plan; AC3 and all of User Testing reference it.
-- `specs/terminal-plugin/phase-2b-completion.md` — completed deliverables this phase builds on; `PtyBackend` contract.
-- `specs/terminal-plugin/phase-2b-plugin-integration-spec.md` — interface seam documentation.
-- `specs/terminal-plugin/future-ideas-backlog.md` — FI-001 context for tmux naming.
+- `specs/anvil/meta-plan.md` — Phase 3 section + "Notes from Phase 2b" inside the Phase 3 entry. Pay particular attention to the load-bearing notes about `TerminalBackend`, `TerminalView.detectShell()`, and the inline-red error pattern.
+- `specs/anvil/testing-approach.md` — testing philosophy, harness capabilities and limits.
+- `specs/anvil/manual-test-checklist.md` — MT-005 through MT-012. This is the UAT plan; AC3 and all of User Testing reference it.
+- `specs/anvil/phase-2b-completion.md` — completed deliverables this phase builds on; `PtyBackend` contract.
+- `specs/anvil/phase-2b-plugin-integration-spec.md` — interface seam documentation.
+- `specs/anvil/future-ideas-backlog.md` — FI-001 context for tmux naming.
 - `docs/adr/0003-pty-backend.md` — PTY backend architecture decision.
 - `CLAUDE.md` — project conventions, dependency-maintenance cadence, manual-install model.
 

@@ -32,7 +32,7 @@ These are pointers from the technical research, not hard requirements. The execu
 - xterm.js via `@xterm/xterm` + `@xterm/addon-fit` is the expected library choice
 - Obsidian's `ItemView` is the standard base class for custom panes
 - `ResizeObserver` + `FitAddon` is the known-good reflow pattern
-- Reference existing plugins for key interception patterns: polyipseity/obsidian-terminal, clevcode/obsidian-terminal-plugin, ZyphrZero/Termy
+- Reference existing plugins for key interception patterns: polyipseity/obsidian-terminal, clevcode/anvil-obsidian-terminal, ZyphrZero/Termy
 
 ## Acceptance Criteria
 
@@ -72,13 +72,13 @@ After building and loading the plugin in Obsidian:
 
 ## Sources
 
-- **Meta-plan:** `specs/terminal-plugin/meta-plan.md`
+- **Meta-plan:** `specs/anvil/meta-plan.md`
 - **Technical research:** Vault → `Programming/Obsidian Terminal Plugin - Technical Design Research.md`
 - **Obsidian ItemView API:** https://docs.obsidian.md/Reference/TypeScript+API/ItemView
 - **xterm.js docs:** https://xtermjs.org/
 - **@xterm/addon-fit:** https://www.npmjs.com/package/@xterm/addon-fit
 - **Existing plugins for reference patterns:**
   - polyipseity/obsidian-terminal (key interception approach)
-  - clevcode/obsidian-terminal-plugin (simple architecture)
+  - clevcode/anvil-obsidian-terminal (simple architecture)
   - ZyphrZero/Termy (clean separation)
 - **Obsidian CSS variables:** https://docs.obsidian.md/Reference/CSS+variables

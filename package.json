@@ -1,8 +1,8 @@
 {
-  "name": "obsidian-terminal-plugin",
+  "name": "anvil-obsidian-terminal",
   "version": "0.0.0",
   "private": true,
-  "description": "Obsidian plugin that embeds a real system terminal",
+  "description": "Anvil — a native bottom-dock terminal for Obsidian, built for running Claude Code and other agent CLIs.",
   "scripts": {
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs",

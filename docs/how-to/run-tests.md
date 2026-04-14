@@ -45,4 +45,4 @@ The pinned versions of `wdio-obsidian-service` and the Obsidian binary are inten
 
 ## Related
 
-- The testing philosophy lives in [`specs/terminal-plugin/testing-approach.md`](../../specs/terminal-plugin/testing-approach.md). Read that before adding new tests.
+- The testing philosophy lives in [`specs/anvil/testing-approach.md`](../../specs/anvil/testing-approach.md). Read that before adding new tests.

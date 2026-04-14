@@ -14,15 +14,15 @@ You have a built copy of the plugin and want to put it into an Obsidian vault by
 
    ```bash
    VAULT=/path/to/throwaway-vault
-   mkdir -p "$VAULT/.obsidian/plugins/obsidian-terminal-plugin"
+   mkdir -p "$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
    ```
 
-   The folder name must match the plugin id in `manifest.json`, which is `obsidian-terminal-plugin`.
+   The folder name must match the plugin id in `manifest.json`, which is `anvil-obsidian-terminal`.
 
 2. **Copy the plugin files and the `bin/` directory in.**
 
    ```bash
-   PLUGIN_DIR="$VAULT/.obsidian/plugins/obsidian-terminal-plugin"
+   PLUGIN_DIR="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
    cp main.js manifest.json styles.css "$PLUGIN_DIR/"
    cp -R bin "$PLUGIN_DIR/"
    ```
@@ -43,7 +43,7 @@ Re-run step 2 to copy the new build over. Then in Obsidian, disable and re-enabl
 
 ## Troubleshooting
 
-- **The plugin doesn't appear under Community plugins.** Check that the folder is named exactly `obsidian-terminal-plugin` (matching the id in `manifest.json`) and that the three plugin files plus the `bin/` directory are inside it. Then quit and relaunch the vault.
+- **The plugin doesn't appear under Community plugins.** Check that the folder is named exactly `anvil-obsidian-terminal` (matching the id in `manifest.json`) and that the three plugin files plus the `bin/` directory are inside it. Then quit and relaunch the vault.
 - **The pane opens but immediately shows a red `[pty-backend] ...` line.** macOS Gatekeeper has quarantined the `pty-server` binary. Strip the quarantine bit once with:
   ```bash
   xattr -d com.apple.quarantine "$PLUGIN_DIR/bin/pty-server"

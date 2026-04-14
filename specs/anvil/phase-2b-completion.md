@@ -124,7 +124,7 @@ expects is `<plugin dir>/bin/pty-server`.
 1. **First-run quarantine fix** — if Gatekeeper blocks the binary on a
    fresh build:
    ```bash
-   xattr -d com.apple.quarantine path/to/plugins/obsidian-terminal-plugin/bin/pty-server
+   xattr -d com.apple.quarantine path/to/plugins/anvil-obsidian-terminal/bin/pty-server
    ```
    The build script does this for the in-repo copy automatically; the
    quarantine bit only re-attaches on freshly-copied files.

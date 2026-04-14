@@ -1,11 +1,11 @@
-# Obsidian Terminal Plugin
+# Anvil: Obsidian Terminal
 
-Custom Obsidian plugin that embeds a real system terminal — VS Code-style shell picker, tmux session attach, multiple instances.
+Custom Obsidian plugin that embeds a real system terminal — VS Code-style shell picker, tmux session attach, multiple instances, bottom-dock placement. Built primarily for running Claude Code and other agent CLIs next to your notes. Repo is `anvil-obsidian-terminal`.
 
 ## Entry Points
 
-- **Meta-plan:** `specs/terminal-plugin/meta-plan.md`
-- **Testing approach:** `specs/terminal-plugin/testing-approach.md` — read before writing tests in any phase
+- **Meta-plan:** `specs/anvil/meta-plan.md`
+- **Testing approach:** `specs/anvil/testing-approach.md` — read before writing tests in any phase
 - **Technical research:** Vault → `Programming/Obsidian Terminal Plugin - Technical Design Research.md`
 - **Task note:** Vault → `TaskNotes/Tasks/Obsidian Terminal Plugin.md`
 
@@ -43,10 +43,10 @@ npm install
 npm run build
 
 # Dev: symlink into Obsidian plugins
-ln -s $(pwd) ~/.obsidian/plugins/obsidian-terminal-plugin
+ln -s $(pwd) ~/.obsidian/plugins/anvil-obsidian-terminal
 
 # Or copy build output
-cp main.js manifest.json styles.css ~/.obsidian/plugins/obsidian-terminal-plugin/
+cp main.js manifest.json styles.css ~/.obsidian/plugins/anvil-obsidian-terminal/
 ```
 
 Note: The symlink/copy path depends on which vault you're testing with. Adjust accordingly.

@@ -1,6 +1,8 @@
-# Obsidian Terminal Plugin
+# Anvil: Obsidian Terminal
 
-A real system terminal embedded inside Obsidian. The end goal is a workspace where you can keep notes, run shells, and reattach to tmux without ever leaving the vault — VS Code's terminal pane, living next to your notes.
+A real system terminal embedded inside Obsidian, built primarily for running Claude Code and other agent CLIs next to your notes. The end goal is a workspace where you can keep notes, run shells, and reattach to tmux without ever leaving the vault — VS Code's bottom terminal pane, docked in Obsidian.
+
+*Anvil* is the name; *Obsidian Terminal* is the subtitle. The repo is `anvil-obsidian-terminal` so it's still findable on a repo list.
 
 ## What this is
 
@@ -24,8 +26,8 @@ A real system terminal embedded inside Obsidian. The end goal is a workspace whe
 1. **Clone and install.**
 
    ```bash
-   git clone <this repo> obsidian-terminal-plugin
-   cd obsidian-terminal-plugin
+   git clone <this repo> anvil-obsidian-terminal
+   cd anvil-obsidian-terminal
    npm install
    ```
 
@@ -40,7 +42,7 @@ A real system terminal embedded inside Obsidian. The end goal is a workspace whe
 3. **Install into a throwaway vault.** Pick (or create) a vault you don't care about — for example `/tmp/test-vault`. Then copy the plugin files **and the `bin/` directory** into the vault's plugin folder:
 
    ```bash
-   PLUGIN_DIR=/tmp/test-vault/.obsidian/plugins/obsidian-terminal-plugin
+   PLUGIN_DIR=/tmp/test-vault/.obsidian/plugins/anvil-obsidian-terminal
    mkdir -p "$PLUGIN_DIR"
    cp main.js manifest.json styles.css "$PLUGIN_DIR/"
    cp -R bin "$PLUGIN_DIR/"

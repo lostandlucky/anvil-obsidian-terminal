@@ -4,8 +4,8 @@
 
 Steve wants a custom Obsidian plugin that embeds a real system terminal — not because it doesn't exist, but because he doesn't trust third-party plugins with terminal access. The plugin should work like VS Code's terminal: discover available shells, let you pick one, and also attach to existing tmux sessions. The technical research is complete (see vault: `Programming/Obsidian Terminal Plugin - Technical Design Research.md`).
 
-**Project location:** `~/dev/obsidian-terminal-plugin/`
-**Specs location:** `~/dev/obsidian-terminal-plugin/specs/terminal-plugin/`
+**Project location:** `~/dev/anvil-obsidian-terminal/`
+**Specs location:** `~/dev/anvil-obsidian-terminal/specs/anvil/`
 
 ## Scope
 
@@ -39,11 +39,11 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 **Time box:** One working day for the smoke test. If it's not green by end-of-day, stop and execute the fallback documented in `testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2).
 
 **Scope:**
-1. **Source audit of `wdio-obsidian-service`.** Read the package's source on GitHub. Specifically check: what it downloads and from where, how it verifies the Obsidian binary (checksum? signature? bare HTTP?), what lifecycle hooks it runs in the test env, what it writes to disk outside the project directory. Record findings in `specs/terminal-plugin/phase-0-audit.md`. If anything looks actively unsafe, stop and reassess.
+1. **Source audit of `wdio-obsidian-service`.** Read the package's source on GitHub. Specifically check: what it downloads and from where, how it verifies the Obsidian binary (checksum? signature? bare HTTP?), what lifecycle hooks it runs in the test env, what it writes to disk outside the project directory. Record findings in `specs/anvil/phase-0-audit.md`. If anything looks actively unsafe, stop and reassess.
 2. **Pin versions.** Exact pins (not semver ranges) for `wdio-obsidian-service` in `package.json` and the Obsidian test binary version in the wdio config. Commit `package-lock.json`. Wire up Dependabot or Renovate against these so future upgrades come as reviewable PRs.
 3. **Smoke-test harness.** A single trivial e2e spec: launch Obsidian via the service, assert the workspace loaded, quit cleanly. No plugin code involved yet — this tests only the harness, on this machine, on this OS.
 4. **Vitest skeleton.** `npm test`, `npm run test:unit`, `npm run test:e2e` scripts exist and route correctly. One trivial unit test to confirm Vitest runs.
-5. **Document the setup.** Brief notes in `specs/terminal-plugin/phase-0-spec.md` on how to run each test level locally and what the pinned versions are.
+5. **Document the setup.** Brief notes in `specs/anvil/phase-0-spec.md` on how to run each test level locally and what the pinned versions are.
 
 **Success criteria:**
 - Audit notes committed, with an explicit "safe to adopt / not safe to adopt" conclusion.
@@ -86,7 +86,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 **Dependencies:** Phase 1 complete. D1–D5 already resolved (see `phase-2a-pty-server-spec.md`): custom Rust binary on `portable-pty`, kill-on-close, login shell, vault-root cwd, cargo workspace at `pty-server/`.
 
-**Spec:** `specs/terminal-plugin/phase-2a-pty-server-spec.md`
+**Spec:** `specs/anvil/phase-2a-pty-server-spec.md`
 
 **Success criteria:**
 - `pty-server/` cargo workspace builds cleanly via `cargo build --release` on macOS arm64
@@ -112,7 +112,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 **Dependencies:** Phase 2a complete (binary, protocol, ADR-0003 all in place).
 
-**Spec:** `specs/terminal-plugin/phase-2b-plugin-integration-spec.md`
+**Spec:** `specs/anvil/phase-2b-plugin-integration-spec.md`
 
 **Success criteria:**
 - Commands execute in a real shell with correct output
@@ -198,6 +198,6 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 After each phase, the plugin should be testable by:
 1. Building with the project's build command
-2. Copying output to `~/.obsidian/plugins/obsidian-terminal-plugin/` (or symlinking during dev)
+2. Copying output to `~/.obsidian/plugins/anvil-obsidian-terminal/` (or symlinking during dev)
 3. Enabling in Obsidian settings → Community plugins
 4. Exercising the features added in that phase

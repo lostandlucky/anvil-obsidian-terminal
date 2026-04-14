@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-terminal-plugin",
-  "name": "Terminal",
+  "id": "anvil-obsidian-terminal",
+  "name": "Anvil: Obsidian Terminal",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Embed a real system terminal inside Obsidian.",
+  "description": "Anvil — a native bottom-dock terminal for Obsidian, built for running Claude Code and other agent CLIs.",
   "author": "Steve Day",
   "isDesktopOnly": true
 }

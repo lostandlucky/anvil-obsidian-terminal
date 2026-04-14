@@ -2,7 +2,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { browser } from "@wdio/globals";
 
-const PLUGIN_ID = "obsidian-terminal-plugin";
+const PLUGIN_ID = "anvil-obsidian-terminal";
 const BINARY_NAME = "pty-server";
 
 export const config: WebdriverIO.Config = {

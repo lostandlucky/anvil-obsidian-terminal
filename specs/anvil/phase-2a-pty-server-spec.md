@@ -79,9 +79,9 @@ What 2a **must not** touch:
 
 Read these before starting:
 
-- `specs/terminal-plugin/meta-plan.md` — Phase 2a entry, shared constraints.
-- `specs/terminal-plugin/phase-0-harness-spec.md` and `phase-0-completion.md` — format reference for spike-style spec/completion docs. 2a is the same shape as Phase 0 (de-risk an unfamiliar component in isolation).
-- `specs/terminal-plugin/testing-approach.md` — boundary rule, RED/GREEN discipline. The Rust side inherits the same discipline.
+- `specs/anvil/meta-plan.md` — Phase 2a entry, shared constraints.
+- `specs/anvil/phase-0-harness-spec.md` and `phase-0-completion.md` — format reference for spike-style spec/completion docs. 2a is the same shape as Phase 0 (de-risk an unfamiliar component in isolation).
+- `specs/anvil/testing-approach.md` — boundary rule, RED/GREEN discipline. The Rust side inherits the same discipline.
 - Vault: `Programming/Obsidian Terminal Plugin - Technical Design Research.md` — original tradeoff analysis. The "Option C: Rust binary + portable-pty + WebSocket" section is the architectural blueprint.
 - [Termy](https://github.com/zyphrzero/termy) — prior-art Obsidian plugin using the same architecture. Read for reference patterns on the WebSocket protocol, port discovery, codesigning workarounds. **Not a dependency.**
 - [`portable-pty` crate docs](https://docs.rs/portable-pty/) — the WezTerm PTY abstraction we're building on.

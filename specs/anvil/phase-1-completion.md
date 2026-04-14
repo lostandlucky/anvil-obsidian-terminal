@@ -6,7 +6,7 @@
 
 ## Deliverables
 
-- **manifest.json** — id `obsidian-terminal-plugin`, minAppVersion `1.5.0`, desktop-only
+- **manifest.json** — id `anvil-obsidian-terminal`, minAppVersion `1.5.0`, desktop-only
 - **esbuild.config.mjs** — builds `main.js` (cjs, obsidian external) and `styles.css` (bundles `@xterm/xterm/css/xterm.css` + plugin rules)
 - **src/main.ts** — `TerminalPlugin` registers the view + `open-terminal` command
 - **src/view/TerminalView.ts** — `ItemView` subclass: mounts xterm, writes welcome, routes input through the mock REPL, manages the hotkey guard

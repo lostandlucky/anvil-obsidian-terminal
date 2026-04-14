@@ -1,6 +1,6 @@
 # Documentation Standards
 
-This file defines how documentation works in the obsidian-terminal-plugin repo: what kinds of docs exist, where they live, and how they get written. It's the rules of the road. The execution half is `/document` — run that when you want to generate, update, or audit docs against these standards. Edit this file directly whenever the rules need to change; it's prose, meant to be human-maintained.
+This file defines how documentation works in the anvil-obsidian-terminal repo: what kinds of docs exist, where they live, and how they get written. It's the rules of the road. The execution half is `/document` — run that when you want to generate, update, or audit docs against these standards. Edit this file directly whenever the rules need to change; it's prose, meant to be human-maintained.
 
 Audience for the docs themselves is **future-self plus the occasional early external installer** — enough to get someone who's never seen this plugin to a working install and a working dev loop, without committing to a full public-release doc set. `Explanation`-style docs (architecture essays, deep dives into why things are the way they are) are deliberately deferred until there's a real audience asking for them. The absence of an Explanation section below is intentional, not an oversight.
 
@@ -39,7 +39,7 @@ Keep the README tight. If a section bloats past an obvious skim, move detail int
 
 ## Style and Tone
 
-Match the voice of `CLAUDE.md`, `specs/terminal-plugin/meta-plan.md`, and `specs/terminal-plugin/testing-approach.md`. That voice is:
+Match the voice of `CLAUDE.md`, `specs/anvil/meta-plan.md`, and `specs/anvil/testing-approach.md`. That voice is:
 
 - Terse, direct, pragmatic. No sales language. No "seamlessly," no "effortlessly," no "robust."
 - Explain *why*, not just *what*. If a decision has a reason, say the reason.
@@ -125,4 +125,4 @@ Don't let subagents decide which file to document, which section to write, or wh
 - **macOS arm64 only.** Don't write docs that imply cross-platform support. When describing install steps, shell commands, or paths, assume macOS. If a Linux/Windows user shows up, that's a scope change, not a documentation fix.
 - **PTY backend is pending.** Phase 2 will lock the choice. Until it does, don't write reference docs for the backend, and don't write an ADR for it. The slot at `docs/adr/0003-pty-backend.md` is reserved.
 - **E2E harness is pinned and audited.** `wdio-obsidian-service` and the Obsidian test binary are pinned to exact versions. `CLAUDE.md` mandates checking their upgrade state at phase kickoffs. If a doc references the harness version, it can go stale — prefer linking to `package.json` or the `wdio.conf.mts` file rather than hardcoding a version string.
-- **Planning artifacts live in `specs/`, not `docs/`.** `specs/terminal-plugin/` holds the meta-plan, phase specs, and completion reports. `/document` should not touch `specs/`. If something from a completion report belongs in the permanent record, lift it into a reference doc or an ADR deliberately — don't auto-sync.
+- **Planning artifacts live in `specs/`, not `docs/`.** `specs/anvil/` holds the meta-plan, phase specs, and completion reports. `/document` should not touch `specs/`. If something from a completion report belongs in the permanent record, lift it into a reference doc or an ADR deliberately — don't auto-sync.

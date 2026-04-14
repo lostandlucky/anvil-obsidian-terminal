@@ -6,7 +6,7 @@
 
 ## Deliverables
 
-- `specs/terminal-plugin/phase-0-audit.md` — security audit of `wdio-obsidian-service@3.0.2` against repo commit `555750b`, approved verdict **CONDITIONAL SAFE** with four conditions applied
+- `specs/anvil/phase-0-audit.md` — security audit of `wdio-obsidian-service@3.0.2` against repo commit `555750b`, approved verdict **CONDITIONAL SAFE** with four conditions applied
 - `package.json` — exact version pins, no `^`/`~`:
   - `wdio-obsidian-service@3.0.2`, `wdio-obsidian-reporter@3.0.2`
   - `webdriverio@9.27.0`, `@wdio/cli@9.27.0`, `@wdio/local-runner@9.27.0`, `@wdio/mocha-framework@9.27.0`, `@wdio/globals@9.27.0`
@@ -37,7 +37,7 @@ First run downloaded the Obsidian DMG (~520 MB) to `./.obsidian-cache/`. Second 
 2. **Cache location** — confirm `./.obsidian-cache/` exists in the project dir after a run, and that `~/.obsidian-cache` does NOT exist. Audit condition 3 in action.
 3. **Run the e2e twice in a row** — `npm run test:e2e && npm run test:e2e`. Second run should be as green as the first with no stale-state issues.
 4. **Check dependabot** — once this commit is pushed, GitHub → Insights → Dependency graph → Dependabot should show the config is picked up.
-5. **Read the audit** — `specs/terminal-plugin/phase-0-audit.md`. The four conditions there are load-bearing; they are not revisited automatically and it's worth knowing them.
+5. **Read the audit** — `specs/anvil/phase-0-audit.md`. The four conditions there are load-bearing; they are not revisited automatically and it's worth knowing them.
 
 ## Notes for downstream phases
 
@@ -50,5 +50,5 @@ First run downloaded the Obsidian DMG (~520 MB) to `./.obsidian-cache/`. Second 
   4. Re-audit on every Dependabot version bump (review the metadata/digest diffs, not just the version number).
 - **Known-accepted `npm audit` findings.** Six high-severity transitive vulns (lodash via `obsidian-launcher`, serialize-javascript via `mocha`) are documented in `phase-0-audit.md` as non-reachable in our threat model. Do not "fix" them by switching tooling — they're real CVEs but unreachable in a local dev test harness. Revisit if Dependabot offers upstream fixes.
 - **Node version note.** Dev machine is on Node 23.9 (non-LTS). `npm install` emits `EBADENGINE` warnings from a few `@jest/*` transitive deps that want 18/20/22/24+. Harmless right now. Worth revisiting when we consider Node 22 LTS or 24 LTS for the project baseline.
-- **Phase 1 spec already exists** (`specs/terminal-plugin/phase-1-scaffold-spec.md`) — untracked in git at this session's start, authored before Phase 0. Steve should commit it whenever convenient; Phase 0 did not touch it.
+- **Phase 1 spec already exists** (`specs/anvil/phase-1-scaffold-spec.md`) — untracked in git at this session's start, authored before Phase 0. Steve should commit it whenever convenient; Phase 0 did not touch it.
 - **`plugins` option in `wdio:obsidianOptions` is NOT set** in the current `wdio.conf.mts`. Phase 1 will add `plugins: ["."]` once a real `manifest.json` and build output exist.
