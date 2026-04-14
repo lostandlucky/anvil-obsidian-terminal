@@ -93,3 +93,46 @@ Read these before starting:
 - `src/terminal/mock-repl.ts` + tests — reference for the seam shape.
 - `docs/adr/0003-pty-backend.md` — the ADR 2a wrote; cite it in code comments where the architecture is non-obvious.
 - `CLAUDE.md` → "Architecture (3 pieces)" and "Dev Setup".
+
+## Notes from Phase 2a
+
+The 2a binary exists, all 10 acceptance criteria pass, and the protocol is
+locked in `pty-server/PROTOCOL.md`. Things 2b should bake in from day one:
+
+- **Port discovery is one stdout line.** `^PTY_SERVER_LISTENING port=(\d+)$`.
+  Logs go to stderr — don't pipe stderr into the port parser. Read exactly
+  one line, then leave stdout open (the binary doesn't write more) or pipe
+  it to log capture as you prefer.
+- **Hyphen-prefixed shell args use the `=` form.** Spawn the binary with
+  `--shell-arg=-l`, not `--shell-arg -l`. clap accepts either at the type
+  level but the `=` form is what the spawn helper should always emit so
+  there's no ambiguity around argv splitting.
+- **`TERM` is set to `xterm-256color` if the binary's environment doesn't
+  carry one.** Phase 2b passing through Obsidian's env is fine; the fallback
+  is only for `wscat` sessions.
+- **Closing the WebSocket is enough to kill the child shell.** No goodbye
+  message needed. The binary will reply with one final `{"type":"exit",...}`
+  before tearing down — treat that as the authoritative "child gone" signal
+  in your `onExit` plumbing.
+- **Killing the binary process kills the shell.** The binary handles
+  SIGINT/SIGTERM cleanly via a sticky `AtomicBool+Notify` shutdown
+  primitive (don't simplify this with bare `Notify` if you ever touch the
+  Rust side — see "Bumps" in the 2a completion doc). When the plugin's
+  child-process handle dies, the shell goes with it. Verify in the
+  process-cleanup e2e test (acceptance criterion 7) that this holds when
+  Obsidian quits.
+- **One client per binary instance.** The accept loop is serial.
+  Single-instance terminals match this 1:1. Phase 3 multi-instance is
+  "spawn another binary on another port," not "multiplex one binary."
+- **Echo-matching in e2e tests is a trap.** zsh autosuggestions / prompt
+  redraw will scatter copies of typed input through the output stream. The
+  2a smoke harness solved this by using `printf "MARKER=%s\\n" "$value"`
+  patterns. Reuse the trick in 2b's e2e shell-output assertions.
+- **First-run quarantine bit.** After every `npm run build` (or fresh
+  clone), the freshly-compiled binary will need
+  `xattr -d com.apple.quarantine target/release/pty-server`. Codesigning
+  is Phase 4. Document this in 2b's first-run notes so it doesn't bite a
+  fresh checkout.
+- **No Cargo Dependabot/Renovate yet.** All 11 Rust deps are pinned to
+  current-as-of-2026-04-14 versions. Worth setting up alongside the npm
+  config in 2b or 4 — not blocking for 2b itself.
