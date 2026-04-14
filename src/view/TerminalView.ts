@@ -1,4 +1,4 @@
-import { ItemView, Plugin, Scope, WorkspaceLeaf } from "obsidian";
+import { ItemView, Plugin, Scope, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import * as path from "path";
 import * as os from "os";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
@@ -7,6 +7,17 @@ import { TerminalBackend } from "../pty/terminal-backend";
 
 export const TERMINAL_VIEW_TYPE = "obsidian-terminal-view";
 
+interface TerminalLaunchState {
+  shell?: string;
+  shellArgs?: string[];
+  cwd?: string;
+}
+
+interface HostPlugin extends Plugin {
+  getDefaultShell?: () => string;
+  openDefaultTerminal?: () => Promise<void> | void;
+}
+
 export class TerminalView extends ItemView {
   private host: XtermHost | null = null;
   private backend: TerminalBackend | null = null;
@@ -14,9 +25,37 @@ export class TerminalView extends ItemView {
   private scopePushed = false;
   private focusInHandler: ((ev: FocusEvent) => void) | null = null;
   private focusOutHandler: ((ev: FocusEvent) => void) | null = null;
+  private launchState: TerminalLaunchState = {};
 
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: Plugin) {
+  constructor(leaf: WorkspaceLeaf, private readonly plugin: HostPlugin) {
     super(leaf);
+    this.addAction("plus", "New terminal", () => {
+      void this.plugin.openDefaultTerminal?.();
+    });
+  }
+
+  async setState(state: unknown, result: ViewStateResult): Promise<void> {
+    if (state && typeof state === "object") {
+      const s = state as Record<string, unknown>;
+      this.launchState = {
+        shell: typeof s.shell === "string" ? s.shell : undefined,
+        shellArgs: Array.isArray(s.shellArgs)
+          ? (s.shellArgs.filter((v) => typeof v === "string") as string[])
+          : undefined,
+        cwd: typeof s.cwd === "string" ? s.cwd : undefined,
+      };
+    }
+    await super.setState(state, result);
+  }
+
+  getState(): Record<string, unknown> {
+    const base = (super.getState() ?? {}) as Record<string, unknown>;
+    return {
+      ...base,
+      shell: this.launchState.shell,
+      shellArgs: this.launchState.shellArgs,
+      cwd: this.launchState.cwd,
+    };
   }
 
   getViewType(): string {
@@ -42,10 +81,11 @@ export class TerminalView extends ItemView {
 
     const backend = new PtyBackend({
       binaryPath: this.resolveBinaryPath(),
-      shell: this.detectShell(),
-      cwd: this.resolveVaultRoot(),
+      shell: this.launchState.shell ?? this.detectShell(),
+      cwd: this.launchState.cwd ?? this.resolveVaultRoot(),
       cols: host.terminal.cols,
       rows: host.terminal.rows,
+      shellArgs: this.launchState.shellArgs,
     });
     this.backend = backend;
 
@@ -154,6 +194,10 @@ export class TerminalView extends ItemView {
   }
 
   private detectShell(): string {
+    if (typeof this.plugin.getDefaultShell === "function") {
+      const fromPlugin = this.plugin.getDefaultShell();
+      if (fromPlugin && fromPlugin.length > 0) return fromPlugin;
+    }
     return process.env.SHELL || "/bin/zsh";
   }
 }
