@@ -143,7 +143,7 @@ export class TerminalView extends ItemView {
     const vaultRoot = adapter.basePath ?? "";
     const manifest = this.plugin.manifest;
     const dir = manifest.dir ?? path.join(".obsidian", "plugins", manifest.id);
-    return path.join(vaultRoot, dir, "pty-server");
+    return path.join(vaultRoot, dir, "bin", "pty-server");
   }
 
   private resolveVaultRoot(): string {

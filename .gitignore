@@ -10,3 +10,4 @@ logs/
 /main.js.map
 /styles.css
 dist/
+/bin/
