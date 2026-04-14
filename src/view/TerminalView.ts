@@ -1,18 +1,21 @@
-import { ItemView, Scope, WorkspaceLeaf } from "obsidian";
+import { ItemView, Plugin, Scope, WorkspaceLeaf } from "obsidian";
+import * as path from "path";
+import * as os from "os";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
-import { runCommand, welcome } from "../terminal/mock-repl";
+import { PtyBackend } from "../pty/pty-backend";
+import { TerminalBackend } from "../pty/terminal-backend";
 
 export const TERMINAL_VIEW_TYPE = "obsidian-terminal-view";
 
 export class TerminalView extends ItemView {
   private host: XtermHost | null = null;
-  private buffer = "";
+  private backend: TerminalBackend | null = null;
   private terminalScope: Scope | null = null;
   private scopePushed = false;
   private focusInHandler: ((ev: FocusEvent) => void) | null = null;
   private focusOutHandler: ((ev: FocusEvent) => void) | null = null;
 
-  constructor(leaf: WorkspaceLeaf) {
+  constructor(leaf: WorkspaceLeaf, private readonly plugin: Plugin) {
     super(leaf);
   }
 
@@ -36,9 +39,33 @@ export class TerminalView extends ItemView {
     const host = createXtermHost();
     this.host = host;
     host.mount(container);
-    host.write(welcome());
 
-    host.onData((data) => this.handleInput(data));
+    const backend = new PtyBackend({
+      binaryPath: this.resolveBinaryPath(),
+      shell: this.detectShell(),
+      cwd: this.resolveVaultRoot(),
+      cols: host.terminal.cols,
+      rows: host.terminal.rows,
+    });
+    this.backend = backend;
+
+    backend.onData((data) => host.write(data));
+    backend.onExit(({ status, signal }) => {
+      const detail = signal !== null ? `signal ${signal}` : `status ${status ?? "?"}`;
+      host.write(`\r\n\x1b[33m[shell exited: ${detail}]\x1b[0m\r\n`);
+    });
+    host.onData((data) => backend.write(data));
+    host.onResize(({ cols, rows }) => backend.resize(cols, rows));
+
+    try {
+      await backend.start();
+    } catch (err) {
+      host.write(
+        `\r\n\x1b[31m[failed to start terminal backend: ${
+          (err as Error).message
+        }]\x1b[0m\r\n`,
+      );
+    }
 
     this.terminalScope = new Scope(this.app.scope);
     const swallow = () => false;
@@ -99,36 +126,32 @@ export class TerminalView extends ItemView {
     }
     this.terminalScope = null;
 
+    if (this.backend) {
+      await this.backend.close();
+      this.backend = null;
+    }
     this.host?.dispose();
     this.host = null;
-    this.buffer = "";
   }
 
   onResize(): void {
     this.host?.fit();
   }
 
-  private handleInput(data: string): void {
-    if (!this.host) return;
-    for (const ch of data) {
-      const code = ch.charCodeAt(0);
-      if (ch === "\r") {
-        const result = runCommand(this.buffer);
-        this.buffer = "";
-        this.host.write(result.output);
-      } else if (code === 0x7f || code === 0x08) {
-        if (this.buffer.length > 0) {
-          this.buffer = this.buffer.slice(0, -1);
-          this.host.write("\b \b");
-        }
-      } else if (code === 0x03) {
-        this.buffer = "";
-        this.host.write("^C\r\n");
-        this.host.write("\x1b[32mmock>\x1b[0m ");
-      } else if (code >= 0x20 && code !== 0x7f) {
-        this.buffer += ch;
-        this.host.write(ch);
-      }
-    }
+  private resolveBinaryPath(): string {
+    const adapter = this.app.vault.adapter as unknown as { basePath?: string };
+    const vaultRoot = adapter.basePath ?? "";
+    const manifest = this.plugin.manifest;
+    const dir = manifest.dir ?? path.join(".obsidian", "plugins", manifest.id);
+    return path.join(vaultRoot, dir, "pty-server");
+  }
+
+  private resolveVaultRoot(): string {
+    const adapter = this.app.vault.adapter as unknown as { basePath?: string };
+    return adapter.basePath ?? os.homedir();
+  }
+
+  private detectShell(): string {
+    return process.env.SHELL || "/bin/zsh";
   }
 }

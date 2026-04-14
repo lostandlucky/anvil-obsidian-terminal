@@ -5,7 +5,7 @@ export default class TerminalPlugin extends Plugin {
   async onload(): Promise<void> {
     this.registerView(
       TERMINAL_VIEW_TYPE,
-      (leaf) => new TerminalView(leaf),
+      (leaf) => new TerminalView(leaf, this),
     );
 
     this.addCommand({

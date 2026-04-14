@@ -6,6 +6,7 @@ export interface XtermHost {
   mount(container: HTMLElement): void;
   write(data: string): void;
   onData(handler: (data: string) => void): void;
+  onResize(handler: (size: { cols: number; rows: number }) => void): void;
   fit(): void;
   focus(): void;
   dispose(): void;
@@ -55,6 +56,9 @@ export function createXtermHost(): XtermHost {
     },
     onData(handler) {
       terminal.onData(handler);
+    },
+    onResize(handler) {
+      terminal.onResize(({ cols, rows }) => handler({ cols, rows }));
     },
     fit() {
       try {
