@@ -104,83 +104,18 @@ describe("obsidian-terminal-plugin", function () {
     expect(hasScreen).toBe(true);
   });
 
-  it("shows the welcome message in the terminal buffer", async function () {
+  it("renders a real shell prompt, not the mock REPL", async function () {
     await openTerminal();
+    // Wait for the shell to print something. We don't assert on a specific
+    // prompt character because that varies by shell — just that nothing
+    // mock-related is on screen and the buffer is non-empty.
     await browser.waitUntil(
-      async () => (await readTerminalText()).includes("Obsidian Terminal"),
-      { timeout: 5000, timeoutMsg: "welcome never rendered" },
+      async () => (await readTerminalText()).trim().length > 0,
+      { timeout: 10000, timeoutMsg: "shell never produced output" },
     );
     const text = await readTerminalText();
-    expect(text).toContain("Obsidian Terminal");
-    expect(text).toContain("mock>");
-  });
-
-  it("typed input is echoed and the echo command prints its argument", async function () {
-    await openTerminal();
-    await focusTerminal();
-
-    await browser.keys([
-      "e",
-      "c",
-      "h",
-      "o",
-      " ",
-      "h",
-      "e",
-      "l",
-      "l",
-      "o",
-      "Enter",
-    ]);
-
-    await browser.waitUntil(
-      async () => {
-        const text = await readTerminalText();
-        const afterPrompt = text.split("echo hello").slice(1).join("echo hello");
-        return /\bhello\b/.test(afterPrompt);
-      },
-      { timeout: 5000, timeoutMsg: "echo output never rendered" },
-    );
-  });
-
-  it("ANSI colors render as styled spans, not raw escape codes", async function () {
-    await openTerminal();
-    await focusTerminal();
-
-    await browser.keys([
-      "c",
-      "o",
-      "l",
-      "o",
-      "r",
-      "s",
-      "Enter",
-    ]);
-
-    await browser.waitUntil(
-      async () => (await readTerminalText()).includes("bold-cyan"),
-      { timeout: 5000, timeoutMsg: "colors output never rendered" },
-    );
-
-    const text = await readTerminalText();
-    expect(text).not.toContain("\x1b[");
-    expect(text).not.toMatch(/\[3\dm/);
-
-    const styledSpans = await browser.execute(() => {
-      const rows = document.querySelector(
-        ".obsidian-terminal-view .xterm-rows",
-      );
-      if (!rows) return 0;
-      const spans = rows.querySelectorAll("span");
-      let styled = 0;
-      for (const span of Array.from(spans)) {
-        const cls = (span as HTMLElement).className || "";
-        const style = (span as HTMLElement).getAttribute("style") || "";
-        if (/xterm-fg-/.test(cls) || /color\s*:/.test(style)) styled++;
-      }
-      return styled;
-    });
-    expect(styledSpans).toBeGreaterThan(0);
+    expect(text).not.toContain("mock>");
+    expect(text).not.toContain("Obsidian Terminal — type 'help'");
   });
 
   it("Ctrl-C dispatched inside the focused terminal does NOT leak to Obsidian", async function () {

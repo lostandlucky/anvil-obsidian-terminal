@@ -57,16 +57,6 @@ export class TerminalView extends ItemView {
     host.onData((data) => backend.write(data));
     host.onResize(({ cols, rows }) => backend.resize(cols, rows));
 
-    try {
-      await backend.start();
-    } catch (err) {
-      host.write(
-        `\r\n\x1b[31m[failed to start terminal backend: ${
-          (err as Error).message
-        }]\x1b[0m\r\n`,
-      );
-    }
-
     this.terminalScope = new Scope(this.app.scope);
     const swallow = () => false;
     for (const mods of [
@@ -107,6 +97,18 @@ export class TerminalView extends ItemView {
 
     requestAnimationFrame(() => host.fit());
     host.focus();
+
+    // Start the backend after focus + scope handlers are in place so a slow
+    // handshake can't race the user's first keystroke.
+    try {
+      await backend.start();
+    } catch (err) {
+      host.write(
+        `\r\n\x1b[31m[failed to start terminal backend: ${
+          (err as Error).message
+        }]\x1b[0m\r\n`,
+      );
+    }
   }
 
   async onClose(): Promise<void> {
