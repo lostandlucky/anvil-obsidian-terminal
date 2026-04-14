@@ -1,8 +1,11 @@
 import { browser, expect, $ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
-const COMMAND_ID = `${PLUGIN_ID}:open-terminal`;
 const VIEW_TYPE = "obsidian-terminal-view";
+
+type AnvilPluginLike = {
+  openDefaultTerminal: () => Promise<void>;
+};
 
 type ObsidianWindow = Window & {
   app: {
@@ -31,10 +34,11 @@ async function closeAllTerminalLeaves() {
 }
 
 async function openTerminal() {
-  await browser.execute((id: string) => {
+  await browser.executeAsync((id: string, done: (v: unknown) => void) => {
     const app = (window as unknown as ObsidianWindow).app;
-    app.commands.executeCommandById(id);
-  }, COMMAND_ID);
+    const plugin = app.plugins.plugins[id] as AnvilPluginLike;
+    void plugin.openDefaultTerminal().then(() => done(null));
+  }, PLUGIN_ID);
   await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 10000 });
 }
 

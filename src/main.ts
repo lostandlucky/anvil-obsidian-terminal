@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import { TerminalView, TERMINAL_VIEW_TYPE } from "./view/TerminalView";
 import {
@@ -12,6 +13,13 @@ import {
   normalizeSettings,
 } from "./settings/settings";
 import { AnvilSettingsTab, SettingsTabHost } from "./settings/settings-tab";
+import { discoverShells } from "./profiles/shell-discovery";
+import {
+  createSystemTmuxRunner,
+  discoverTmux,
+  TmuxDiscoveryResult,
+} from "./profiles/tmux-discovery";
+import { ProfilePickerModal } from "./picker/profile-picker";
 
 export interface TerminalLaunchSpec {
   shell: string;
@@ -34,7 +42,9 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
     this.addCommand({
       id: "open-terminal",
       name: "Open terminal",
-      callback: () => this.openDefaultTerminal(),
+      callback: () => {
+        void this.openPicker();
+      },
     });
 
     this.addSettingTab(new AnvilSettingsTab(this, this));
@@ -67,6 +77,57 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
 
   async openDefaultTerminal(): Promise<void> {
     await this.openTerminalWithSpec({ shell: this.getDefaultShell() });
+  }
+
+  async openPicker(): Promise<void> {
+    const shells = discoverShells({
+      envShell: process.env.SHELL,
+      userShells: this.settings.userShellList,
+      exists: (p) => {
+        try {
+          return fs.existsSync(p);
+        } catch {
+          return false;
+        }
+      },
+    });
+
+    let tmux: TmuxDiscoveryResult;
+    try {
+      tmux = await discoverTmux(createSystemTmuxRunner());
+    } catch {
+      tmux = { installed: false, tmuxPath: null, sessions: [] };
+    }
+
+    const modal = new ProfilePickerModal(this.app, {
+      shells,
+      tmux,
+      defaultShellPath: this.getDefaultShell(),
+      onChoose: async (choice) => {
+        switch (choice.kind) {
+          case "shell":
+            await this.openTerminalWithSpec({ shell: choice.path });
+            return;
+          case "new-tmux":
+            if (tmux.tmuxPath) {
+              await this.openTerminalWithSpec({
+                shell: tmux.tmuxPath,
+                shellArgs: ["new-session"],
+              });
+            }
+            return;
+          case "tmux-session":
+            if (tmux.tmuxPath) {
+              await this.openTerminalWithSpec({
+                shell: tmux.tmuxPath,
+                shellArgs: ["attach-session", "-t", choice.name],
+              });
+            }
+            return;
+        }
+      },
+    });
+    modal.open();
   }
 
   async openTerminalWithSpec(spec: TerminalLaunchSpec): Promise<void> {
