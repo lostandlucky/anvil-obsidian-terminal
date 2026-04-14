@@ -18,6 +18,7 @@ Steve wants a custom Obsidian plugin that embeds a real system terminal — not 
 - **PTY backend choice:** The biggest architectural decision. Three viable options (Python pty helper, Rust binary + WebSocket, node-pty with prebuilt binaries). Decision must be locked before Phase 2. This is a cross-phase concern — it affects build tooling, distribution, and the data path between xterm.js and the shell.
 - **macOS arm64 primary target:** All phases target Steve's machine first. Other platforms are explicitly out of scope.
 - **Obsidian plugin conventions:** TypeScript, esbuild, manifest.json, styles.css. Plugin runs in Electron renderer with Node.js access.
+- **Dev-loop reload ergonomics (2b+):** Obsidian caches loaded plugin JavaScript — `main.js` changes are not picked up by a running Obsidian until the plugin is toggled off/on, the app is reloaded, or the "Hot Reload" community plugin (`pjeby/hot-reload`) is installed to auto-toggle on file change. The Rust binary layer is fine: each new terminal view spawns a fresh child, so rebuilt binaries are picked up by simply closing and reopening the view. Only the JS layer is sticky. Manual reload is acceptable for now; Hot Reload is worth considering if iteration speed starts to hurt.
 
 ## Dependency Map
 
