@@ -11,6 +11,7 @@ export interface PtyBackendOptions {
   cols: number;
   rows: number;
   env?: NodeJS.ProcessEnv;
+  shellArgs?: string[];
 }
 
 type ExitInfo = { status: number | null; signal: number | null };
@@ -31,6 +32,7 @@ export class PtyBackend implements TerminalBackend {
       cwd: this.opts.cwd,
       cols: this.opts.cols,
       rows: this.opts.rows,
+      shellArgs: this.opts.shellArgs,
     });
     const env = { TERM: "xterm-256color", ...(this.opts.env ?? process.env) };
     const child = spawn(this.opts.binaryPath, args, {
