@@ -58,6 +58,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ | Terminal mounts as full-width pane below editor area as expected. |
 
 ### MT-006: rootSplit direction restores on close
 **What:** Before opening terminal, note the `rootSplit` direction (should be `vertical`). Open terminal. Close terminal. Verify direction is back to `vertical` and layout is visibly unchanged.
@@ -65,6 +66,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ❌ STANDING REGRESSION — tracked as [FI-002](future-ideas-backlog.md) | Pre-existing vertical splits flatten on terminal open (expected per D1) but **do not visually restore on close** — children stay as rows even though `rootSplit.direction` property is set back. E2e has a blind spot: `bottom-dock.e2e.ts` only checks the direction property on an empty workspace, never exercises pre-existing splits. Decision: keep MT-006 as a standing manual regression, fix alongside [FI-002](future-ideas-backlog.md) when that's picked up. Related Phase 4 polish items surfaced during this run: [FI-003](future-ideas-backlog.md) (close affordance), [FI-004](future-ideas-backlog.md) (height persistence), [FI-005](future-ideas-backlog.md) (session persistence). |
 
 ### MT-007: Multi-column main area flatten + restore (UAT — flatten tradeoff judgment)
 **What:** This is the test that decides whether the "flatten" default is actually acceptable or whether we need an escape hatch in Phase 4. Run it deliberately and record a subjective judgment, not just pass/fail.
@@ -91,6 +93,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ (subjective pass — D7 holds for the target user) | **Jarring but acceptable.** Flatten feels visually abrupt but tolerable. The restore gap ([FI-002](future-ideas-backlog.md)) does not break the use case for this plugin's intended audience — users who keep the terminal open continuously (e.g. running Claude Code alongside notes). For that workflow, the terminal placement is the priority and splits are secondary. Explicit rejection: do NOT add a bail-out-when-columns-exist escape hatch — terminal placement should win over note layout for this user archetype. D7 (flip blindly) stays. |
 
 ### MT-008: Drag a note tab onto the terminal dock
 **What:** With terminal docked, drag a note tab from an editor tab group and drop it onto the terminal's container. Observe: does Obsidian wrap the terminal into a mixed tab group? Does the drop get rejected? Record the actual behavior.
@@ -98,6 +101,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ (no pollution) + unexpected win | Obsidian refuses to merge a note tab INTO the terminal leaf — no mixed tab group. Dropping a note directly onto the terminal pane swaps the two panes' positions (the note takes the dock slot, the terminal takes the note's slot). Dropping a note "beside" the terminal forces the terminal into a vertical split with the note as a sibling — which is actually desirable and gives a layout we thought we'd need to build explicitly later. **Limitation:** the terminal leaf itself cannot be dragged to reposition — no draggable handle. Logged as [FI-006](future-ideas-backlog.md) (draggable terminal leaf). |
 
 ### MT-009: Profile picker — first-time use and overall feel (UAT)
 **What:** This is the UAT for the profile picker itself. The picker is the front door to the plugin — it's how you choose between "launch a fresh shell" and "attach to an existing tmux session," and it's how you pick *which* shell or *which* session. Run this test to see how it feels before you've learned it, then again after.
@@ -139,6 +143,7 @@ Typing in the input filters both sections by name. Arrow keys move the selection
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` + hotfixes | ✅ shell path + tmux new-session path. Attach path still to come in Part C. | Shell-picker path: picker opens as a quick-switcher-style modal, "Launch new" header + zsh/bash/sh rows, `zsh` marked `(default)`, no Attach section when tmux is absent. **D4 fix confirmed:** opened the picker without touching mouse or arrow keys, pressed Enter immediately, zsh launched — default row is genuinely pre-selected, not just visually badged. Filter works (`zs` narrows). Esc dismisses. **tmux installed, zero sessions:** after `brew install tmux` + relaunching Obsidian, "New tmux session" row appeared under shells as expected, no Attach section. **"New tmux session" launches real tmux:** verified `echo $TMUX` prints a non-empty socket path and `tmux display-message -p '#S'` prints an auto-assigned session name. Two bugs surfaced and fixed mid-test: (1) [FI-008](future-ideas-backlog.md) — tmux-discovery used a dynamic `await import("child_process")` that didn't resolve correctly through esbuild's external-bundle path, so the runner silently returned null and the picker never showed tmux rows even when tmux was on PATH. Fixed by switching to a static import matching `pty-backend.ts`. (2) [FI-009](future-ideas-backlog.md) — `TerminalView.onOpen` read its launch spec from `launchState` populated by `setState`, but Obsidian's view lifecycle does not guarantee `setState` fires before `onOpen`, so the spec was `{}` when the backend started and the view always fell through to `detectShell()` → zsh, regardless of what the picker chose. Fixed by adding a `plugin.pendingSpecs` WeakMap keyed by leaf, set synchronously before `leaf.setViewState`, consumed inside `onOpen`. |
 
 ### MT-010: tmux attach preserves or resizes correctly per setting
 **What:** Start a tmux session outside Obsidian at a known size. Attach via picker. Verify the default setting (pane wins → tmux resized to match) actually resizes. Flip the setting, detach, re-attach, verify tmux dimensions are now preserved.
@@ -146,6 +151,7 @@ Typing in the input filters both sections by name. Arrow keys move the selection
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` + hotfixes | ⏸️ PARTIAL — resume later in session | **First half verified:** created detached tmux session at `200x50`, attached via Obsidian picker, confirmed the window was resized to match the Obsidian pane ("pane wins" default behavior is correct — setting OFF, session resizes to pane). **Second half deferred:** toggling "Preserve tmux session dimensions on attach" ON and re-attaching was not run — the known Phase 4 gap (setting persisted but not yet consumed by the spawn path) is already tracked in `phase-3-completion.md`. User wants to return to this before closing the session. Gotcha noted: `#{session_width}/#{session_height}` are empty for detached sessions — use `#{window_width}/#{window_height}` from `tmux list-windows -t <name>` to check dimensions without attaching. |
 
 ### MT-011: Graceful degradation when tmux is missing
 **What:** On a machine without tmux (or with `PATH` mangled to hide it — e.g. launch Obsidian from a shell where `PATH=/usr/bin:/bin` and tmux isn't on it), run the picker. Verify the "Launch new" section shows **only** discovered shells — the "New tmux session" row should **not** appear, and no "Attach to tmux session" section should render either. No error notice, no broken modal.
@@ -153,6 +159,7 @@ Typing in the input filters both sections by name. Arrow keys move the selection
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ | `which tmux` returned "command not found" on this machine. Picker opened with only the Launch new section and the three discovered shells (zsh / bash / sh). No "New tmux session" row, no Attach section, no error banner, no Obsidian Notice. Degradation is clean — the picker looks identical to any other tmux-absent machine. |
 
 ### MT-012: Multi-instance independence
 **What:** Open two terminals. Run a long-running command in one (`tail -f /var/log/system.log`). Type in the other, resize the other, close the other. Verify the first is completely undisturbed.
@@ -160,6 +167,7 @@ Typing in the input filters both sections by name. Arrow keys move the selection
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ for multi-instance isolation, but **uncovered showstopper** for Ctrl-C → see [FI-007](future-ideas-backlog.md) | Plus-icon opens terminal B alongside terminal A. `echo AAA` / `echo BBB` each only appear in their own pane. `tail -f /var/log/system.log` in A kept streaming undisturbed while typing + running commands in B. Closing B left A running the tail untouched — multi-instance isolation genuinely works. **However:** ran into a cross-cutting severe regression while trying to stop the tail — **Ctrl-C does not reach the PTY from a real keypress**. `^C` is never echoed in any terminal, no SIGINT, processes can't be interrupted from the keyboard. This is not an MT-012 failure (multi-instance is fine) but it invalidates MT-002's Phase 2b ✅ which was never actually verified with a real keypress. Root cause: the `TerminalView` scope intercepts all `Ctrl`-modifier keys in Obsidian's capture-phase document listener before they can reach xterm's textarea keydown handler. Phase 2b e2e cheated by calling `backend.write("\x03")` directly; `plugin.e2e.ts` only verified "Ctrl-C doesn't leak to Obsidian" without also checking "xterm did see it". Tracked as [FI-007](future-ideas-backlog.md). Phase 3.5 fix scheduled after the remaining manual tests complete. |
 
 ---
 

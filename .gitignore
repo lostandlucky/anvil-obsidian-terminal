@@ -11,3 +11,6 @@ logs/
 /styles.css
 dist/
 /bin/
+
+# Throwaway manual-test vault used during phase manual testing
+/manual-test-vault/

@@ -30,6 +30,13 @@ export interface TerminalLaunchSpec {
 export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   private dock: BottomDock | null = null;
   private settings: AnvilSettings = { ...DEFAULT_SETTINGS };
+  private pendingSpecs = new WeakMap<WorkspaceLeaf, TerminalLaunchSpec>();
+
+  consumePendingSpec(leaf: WorkspaceLeaf): TerminalLaunchSpec | null {
+    const spec = this.pendingSpecs.get(leaf) ?? null;
+    if (spec) this.pendingSpecs.delete(leaf);
+    return spec;
+  }
 
   async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -133,6 +140,10 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   async openTerminalWithSpec(spec: TerminalLaunchSpec): Promise<void> {
     const dock = this.getDock();
     const leaf = dock.openLeaf() as WorkspaceLeaf;
+    // Stash the spec BEFORE calling setViewState so TerminalView.onOpen can
+    // pick it up regardless of whether Obsidian calls setState before or
+    // after onOpen. The state field is still passed for layout persistence.
+    this.pendingSpecs.set(leaf, spec);
     await leaf.setViewState({
       type: TERMINAL_VIEW_TYPE,
       active: true,

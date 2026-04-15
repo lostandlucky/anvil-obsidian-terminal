@@ -1,3 +1,5 @@
+import { spawn } from "child_process";
+
 export interface TmuxSession {
   name: string;
 }
@@ -44,7 +46,6 @@ export async function discoverTmux(
 export function createSystemTmuxRunner(): TmuxRunner {
   return {
     which: async () => {
-      const { spawn } = await import("child_process");
       return new Promise<string | null>((resolve) => {
         const child = spawn("which", ["tmux"], { stdio: ["ignore", "pipe", "ignore"] });
         let out = "";
@@ -58,7 +59,6 @@ export function createSystemTmuxRunner(): TmuxRunner {
       });
     },
     listSessions: async () => {
-      const { spawn } = await import("child_process");
       return new Promise((resolve) => {
         const child = spawn(
           "tmux",

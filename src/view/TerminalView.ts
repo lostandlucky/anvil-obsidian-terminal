@@ -16,6 +16,7 @@ interface TerminalLaunchState {
 interface HostPlugin extends Plugin {
   getDefaultShell?: () => string;
   openDefaultTerminal?: () => Promise<void> | void;
+  consumePendingSpec?: (leaf: WorkspaceLeaf) => TerminalLaunchState | null;
 }
 
 export class TerminalView extends ItemView {
@@ -79,13 +80,20 @@ export class TerminalView extends ItemView {
     this.host = host;
     host.mount(container);
 
+    const pending = this.plugin.consumePendingSpec?.(this.leaf) ?? null;
+    const resolvedShell =
+      pending?.shell ?? this.launchState.shell ?? this.detectShell();
+    const resolvedCwd =
+      pending?.cwd ?? this.launchState.cwd ?? this.resolveVaultRoot();
+    const resolvedShellArgs = pending?.shellArgs ?? this.launchState.shellArgs;
+
     const backend = new PtyBackend({
       binaryPath: this.resolveBinaryPath(),
-      shell: this.launchState.shell ?? this.detectShell(),
-      cwd: this.launchState.cwd ?? this.resolveVaultRoot(),
+      shell: resolvedShell,
+      cwd: resolvedCwd,
       cols: host.terminal.cols,
       rows: host.terminal.rows,
-      shellArgs: this.launchState.shellArgs,
+      shellArgs: resolvedShellArgs,
     });
     this.backend = backend;
 
