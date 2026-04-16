@@ -80,15 +80,6 @@ On Windows and Linux, there's no separation. **Both Obsidian and the shell want 
 
 **Origin:** Phase 3 manual testing, MT-009 Part C, 2026-04-14.
 
-## FI-001: Configurable tmux session naming
-**What:** When launching a fresh tmux session via the profile picker, let users configure the session name format instead of relying on tmux's auto-assigned integer names. Candidates: fixed prefix (`obsidian-1`, `obsidian-2`), timestamp (`obsidian-2026-04-14-17-32`), user-prompted, template string with placeholders.
-
-**Why deferred:** v1 ships with tmux auto-assigned names because it's zero code and "just works" for the first-use case. Naming is a polish item that matters more once users have many sessions and want to find them later.
-
-**When to reconsider:** When Steve (or a user) complains about tmux session names being unhelpful, or when tmux session management grows a "rename" or "list with metadata" feature. Likely a future home is FI-015's settings surface.
-
-**Origin:** Phase 3 planning session, 2026-04-14.
-
 ## FI-014: Terminal as a tabbed pane — native Obsidian chrome, not a chromeless dock
 **Value we hope to achieve:** The terminal feels like any other Obsidian pane. You close it with the native X, drag it via its tab to reposition, split it with the `...` menu, rename it, and the visual chrome plays nicely with Obsidian's own editor chrome — no overlay collisions, no "where's the close button?", no lost geometry after a reopen. Today the terminal sits naked under `rootSplit` with no tab strip and no chrome of its own, so users discover the limits one by one (no close affordance, no drag handle, Obsidian's editor status overlay covering the bottom row of terminal text, default-height reset on every reopen). The frame is the feature — wrap the terminal in a proper tab container and the absent affordances stop being absent, because they come from Obsidian natively.
 
@@ -114,17 +105,18 @@ On Windows and Linux, there's no separation. **Both Obsidian and the shell want 
 **Value we hope to achieve:** Users shape the plugin to their workflow without editing code or raw plugin data. The shell they prefer, the additional shells installed in non-standard paths, the tmux dimension behavior on attach, the terminal theme, eventually the cross-platform Ctrl skip-list — all live behind a native Obsidian Settings tab where users expect them to be. Today the plugin hardcodes its opinionated defaults and hides even the one setting it does persist (`preserveTmuxDimensions` round-trips through `saveData` but never reaches the spawn path — a known Phase 3 gap). The first real user-configurable surface is the difference between "someone's tool" and "the user's tool."
 
 **Initial scope candidates:**
-- Default shell selection + additional shells list (today: hardcoded discovery in `src/profiles/shell-discovery.ts`)
-- `preserveTmuxDimensions` toggle plumbed into the tmux attach spawn-args construction in `main.ts:openPicker`
-- Theme overrides if FI-016 ships a configurable model
-- Future home for FI-001 (tmux session naming format) and FI-011's cross-platform skip-list
-- "Hide Anvil chrome" toggle if FI-014 ships chrome some users want minimal
+- **Default shell selection + additional shells list.** Today the shell list comes from hardcoded discovery in `src/profiles/shell-discovery.ts`. Users with shells in non-standard paths can't extend it without editing code.
+- **`preserveTmuxDimensions` toggle plumbed into the tmux attach spawn path.** The toggle round-trips through `saveData` today but `main.ts:openPicker`'s spawn-args construction never reads it — a known Phase 3 gap.
+- **Theme overrides** if FI-016 ships a configurable model.
+- **Tmux session naming format** (absorbs the previous FI-001). Today tmux assigns integer names (`0`, `1`, `2`) automatically when the picker launches a fresh session. The setting could let users pick a format — fixed prefix (`obsidian-1`, `obsidian-2`), timestamp (`obsidian-2026-04-14-17-32`), user-prompted at launch, or a template string with placeholders. Polish that matters once users have multiple sessions and want to find them later.
+- **Future home for FI-011's cross-platform skip-list** when cross-platform support lands.
+- **"Hide Anvil chrome" toggle** if FI-014 ships chrome some users want minimal.
 
 **Constraints:**
 - `TerminalBackend` interface MUST NOT be widened to plumb settings — use `TerminalView.setState`/`getState` with a typed launch spec, the working pattern from Phase 3.
 - The `usingFallback` flag on `createBottomDock` is exposed but unused; settings work could surface it as a degraded-mode indicator, or remove it if it stays unused.
 
-**Origin:** Original Phase 4 goal in the (now-superseded) meta-plan; Phase 3 wiring gap on `preserveTmuxDimensions`; feature-consolidation pass 2026-04-16.
+**Origin:** Original Phase 4 goal in the (now-superseded) meta-plan; Phase 3 wiring gap on `preserveTmuxDimensions`; feature-consolidation pass 2026-04-16. Tmux naming content lifted from FI-001 (Phase 3 planning, 2026-04-14) on 2026-04-16.
 
 ## FI-016: Visual cohesion — the terminal wears the user's Obsidian theme
 **Value we hope to achieve:** The terminal looks like it belongs inside Obsidian. Dark mode, light mode, community themes — whatever the user has set, the terminal follows, and colors shift live when the theme changes (no restart, no jarring hardcoded grey against a customized note editor). Today `src/terminal/xterm-host.ts` paints a near-transparent background with hardcoded grey foreground and ignores Obsidian's CSS variables entirely — which is visually off in any non-default theme, even dark mode. Cohesion with the host app is the kind of thing users don't name but feel immediately.
