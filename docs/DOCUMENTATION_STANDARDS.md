@@ -51,6 +51,18 @@ Match the voice of `CLAUDE.md`, `specs/anvil/meta-plan.md`, and `specs/anvil/tes
 
 Code blocks: prefer real, copy-pasteable commands. Fenced with the language (```bash, ```typescript, ```json).
 
+## Linking and cross-references
+
+Docs describe the current state of the system. They're stable — they change when the system changes. Docs should link to other stable things: other docs, source files, historical artifacts (specs, completion reports, git commits at specific SHAs).
+
+**Docs never link to the backlog.** `specs/anvil/future-ideas-backlog.md` is explicitly volatile — entries get added, reframed, absorbed into features, or removed entirely when their work lands. A doc that links to a backlog entry by ID is making a stability promise the backlog can't keep. If the entry is later removed, the doc link dangles.
+
+The correct direction is **backlog → docs**. A backlog entry naming an existing piece of behavior can (and should) link to the doc that describes it. The reverse is not allowed.
+
+If a backlog entry's content is valuable enough that a doc wants to reference it, that's the signal to **promote the content into a doc** — an Explanation, an ADR, or an architecture-reference section — and then let the doc reference the doc. The backlog entry can stay as a pointer into the feature scope; the substantive material lives in the stable artifact.
+
+In prose, backlog IDs (`FI-007`, `FI-011`) can still be mentioned as plain-text names where they carry meaning — they're searchable in git history and in the backlog file. Just don't hyperlink them.
+
 ## Reference Docs
 
 Location: `docs/reference/`. One file per logical unit. Candidate units as of this writing:

@@ -190,6 +190,8 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 ## Phase 4: Settings, Polish + Distribution
 
+> **Status: SUPERSEDED — 2026-04-16.** This phase is no longer the path forward as written. Its scope and the accumulated Notes from Phase 2b / 3 / 3.5 below have been decomposed into feature-shaped backlog entries `FI-014` through `FI-020` in [`future-ideas-backlog.md`](future-ideas-backlog.md). A fresh meta-plan will rescope the remaining work around those features rather than attempting Phase 4 as a single phase. This entry stays for historical context — it shows what the original plan looked like before the dogfooding pickups grew past what one phase could carry.
+
 **Goal:** Make the plugin installable and configurable. Settings UI (default shell, font size, theme, keybindings), Obsidian theme integration (light/dark), distribution packaging (GitHub release with bundled PTY backend), and edge case fixes from dogfooding.
 
 **Dependencies:** Phase 3 complete. Dogfooding feedback collected.
