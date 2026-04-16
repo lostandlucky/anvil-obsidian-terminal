@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildPickerItems,
-  filterPickerItems,
-  findDefaultShellIndex,
+  buildPickerSections,
+  filterPickerSections,
+  flattenSections,
+  findDefaultShellFlatIndex,
 } from "./picker-items";
 import type { DiscoveredShell } from "../profiles/shell-discovery";
 import type { TmuxDiscoveryResult } from "../profiles/tmux-discovery";
@@ -31,194 +32,226 @@ const TMUX_POPULATED: TmuxDiscoveryResult = {
   sessions: [{ name: "work" }, { name: "scratch" }],
 };
 
-describe("buildPickerItems", () => {
-  it("tmux missing: Launch new header + shell rows, no new-tmux row, no Attach section", () => {
-    const items = buildPickerItems({
+describe("buildPickerSections", () => {
+  it("tmux missing: single Launch new section with shells, no tmux section", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: "/bin/zsh",
     });
 
-    const kinds = items.map((i) => i.kind);
-    expect(kinds).toEqual(["header", "shell", "shell", "shell"]);
-    expect((items[0] as { label: string }).label).toBe("Launch new");
-    expect(items.find((i) => i.kind === "new-tmux")).toBeUndefined();
-    expect(items.find((i) => i.kind === "tmux-session")).toBeUndefined();
+    expect(sections.map((s) => s.label)).toEqual(["Launch new"]);
+    expect(sections[0].items.map((i) => i.kind)).toEqual([
+      "shell",
+      "shell",
+      "shell",
+    ]);
   });
 
   it("tmux installed + 0 sessions: Launch new with shells and new-tmux row, no Attach section", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_EMPTY,
       defaultShellPath: "/bin/zsh",
     });
 
-    const kinds = items.map((i) => i.kind);
-    expect(kinds).toEqual([
-      "header",
+    expect(sections.map((s) => s.label)).toEqual(["Launch new"]);
+    expect(sections[0].items.map((i) => i.kind)).toEqual([
       "shell",
       "shell",
       "shell",
       "new-tmux",
     ]);
-    expect(items.find((i) => i.kind === "tmux-session")).toBeUndefined();
   });
 
-  it("tmux installed + sessions: two sections with headers, new-tmux + attach rows", () => {
-    const items = buildPickerItems({
+  it("tmux installed + sessions: two sections — Launch new and Attach to tmux session", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: "/bin/zsh",
     });
 
-    const headers = items.filter((i) => i.kind === "header");
-    expect(headers.map((h) => (h as { label: string }).label)).toEqual([
+    expect(sections.map((s) => s.label)).toEqual([
       "Launch new",
       "Attach to tmux session",
     ]);
 
-    const attachNames = items
+    const attachNames = sections[1].items
       .filter((i) => i.kind === "tmux-session")
       .map((i) => (i as { name: string }).name);
     expect(attachNames).toEqual(["work", "scratch"]);
 
-    expect(items.some((i) => i.kind === "new-tmux")).toBe(true);
+    expect(sections[0].items.some((i) => i.kind === "new-tmux")).toBe(true);
+  });
+
+  it("section items never include a header sentinel", () => {
+    const sections = buildPickerSections({
+      shells: SHELLS,
+      tmux: TMUX_POPULATED,
+      defaultShellPath: null,
+    });
+    for (const section of sections) {
+      for (const item of section.items) {
+        // structural guarantee: PickerItem union no longer has "header"
+        expect(item.kind).not.toBe("header");
+      }
+    }
   });
 
   it("marks the default shell row isDefault when the path matches", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: "/bin/bash",
     });
 
-    const shells = items.filter((i) => i.kind === "shell");
+    const shells = sections[0].items.filter((i) => i.kind === "shell");
     const flags = shells.map((s) => (s as { isDefault: boolean }).isDefault);
     expect(flags).toEqual([false, true, false]);
   });
 
   it("no shell is marked default when the default path does not exist in the discovered list", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: "/usr/bin/nonexistent",
     });
 
-    const shells = items.filter((i) => i.kind === "shell");
+    const shells = sections[0].items.filter((i) => i.kind === "shell");
     const flags = shells.map((s) => (s as { isDefault: boolean }).isDefault);
     expect(flags).toEqual([false, false, false]);
   });
 
   it("no shell is marked default when defaultShellPath is null", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: null,
     });
 
-    const shells = items.filter((i) => i.kind === "shell");
+    const shells = sections[0].items.filter((i) => i.kind === "shell");
     expect(
       shells.every((s) => !(s as { isDefault: boolean }).isDefault),
     ).toBe(true);
   });
 });
 
-describe("filterPickerItems", () => {
-  it("empty query returns the full list including headers", () => {
-    const items = buildPickerItems({
+describe("filterPickerSections", () => {
+  it("empty query returns all sections unchanged", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: "/bin/zsh",
     });
-    const filtered = filterPickerItems(items, "");
-    expect(filtered).toEqual(items);
+    const filtered = filterPickerSections(sections, "");
+    expect(filtered).toEqual(sections);
   });
 
   it("filters shell rows by name case-insensitively", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: null,
     });
-    const filtered = filterPickerItems(items, "Zs");
+    const filtered = filterPickerSections(sections, "Zs");
     const names = filtered
+      .flatMap((s) => s.items)
       .filter((i) => i.kind === "shell")
       .map((i) => (i as { name: string }).name);
     expect(names).toEqual(["zsh"]);
   });
 
   it("filters tmux-session rows by name", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: null,
     });
-    const filtered = filterPickerItems(items, "scr");
+    const filtered = filterPickerSections(sections, "scr");
     const names = filtered
+      .flatMap((s) => s.items)
       .filter((i) => i.kind === "tmux-session")
       .map((i) => (i as { name: string }).name);
     expect(names).toEqual(["scratch"]);
   });
 
-  it("hides a section header whose every leaf is filtered out", () => {
-    const items = buildPickerItems({
+  it("drops sections that have zero matching items after filtering", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: null,
     });
-    const filtered = filterPickerItems(items, "scratch");
-    expect(
-      filtered.some(
-        (i) => i.kind === "header" && (i as { label: string }).label === "Launch new",
-      ),
-    ).toBe(false);
-    expect(
-      filtered.some(
-        (i) =>
-          i.kind === "header" &&
-          (i as { label: string }).label === "Attach to tmux session",
-      ),
-    ).toBe(true);
+    const filtered = filterPickerSections(sections, "scratch");
+    // "scratch" matches in tmux section only
+    expect(filtered.map((s) => s.label)).toEqual(["Attach to tmux session"]);
   });
 
   it("keeps the new-tmux row when the query matches 'tmux' or 'new'", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_EMPTY,
       defaultShellPath: null,
     });
-    const filtered = filterPickerItems(items, "new tmux");
-    expect(filtered.some((i) => i.kind === "new-tmux")).toBe(true);
+    const filtered = filterPickerSections(sections, "new tmux");
+    const kinds = filtered.flatMap((s) => s.items).map((i) => i.kind);
+    expect(kinds).toContain("new-tmux");
   });
 
-  it("returns an empty list when nothing matches", () => {
-    const items = buildPickerItems({
+  it("returns an empty array when nothing matches", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: null,
     });
-    const filtered = filterPickerItems(items, "qzqzqzqzqz");
+    const filtered = filterPickerSections(sections, "qzqzqzqzqz");
     expect(filtered).toEqual([]);
   });
 });
 
-describe("findDefaultShellIndex", () => {
-  it("returns the index of the shell row whose isDefault is true", () => {
-    const items = buildPickerItems({
+describe("flattenSections", () => {
+  it("returns items in section order with per-index section-label map", () => {
+    const sections = buildPickerSections({
+      shells: SHELLS,
+      tmux: TMUX_POPULATED,
+      defaultShellPath: null,
+    });
+    const { items, sectionStartLabels } = flattenSections(sections);
+
+    // 3 shells + 1 new-tmux + 2 sessions = 6 items
+    expect(items.length).toBe(6);
+    // First item of section 0 ("Launch new") at flat index 0
+    expect(sectionStartLabels.get(0)).toBe("Launch new");
+    // First item of section 1 ("Attach to tmux session") at flat index 4
+    expect(sectionStartLabels.get(4)).toBe("Attach to tmux session");
+    // Other indices have no label
+    expect(sectionStartLabels.get(1)).toBeUndefined();
+    expect(sectionStartLabels.get(5)).toBeUndefined();
+  });
+
+  it("empty sections yield empty items and empty label map", () => {
+    const { items, sectionStartLabels } = flattenSections([]);
+    expect(items).toEqual([]);
+    expect(sectionStartLabels.size).toBe(0);
+  });
+});
+
+describe("findDefaultShellFlatIndex", () => {
+  it("returns the flat index of the default shell across all sections", () => {
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_POPULATED,
       defaultShellPath: "/bin/bash",
     });
-    // items[0] = header, items[1] = zsh, items[2] = bash (default), items[3] = fish
-    expect(findDefaultShellIndex(items)).toBe(2);
+    // Section 0: zsh(0), bash(1), fish(2), new-tmux(3); section 1: work(4), scratch(5)
+    expect(findDefaultShellFlatIndex(sections)).toBe(1);
   });
 
   it("returns -1 when no shell is flagged default", () => {
-    const items = buildPickerItems({
+    const sections = buildPickerSections({
       shells: SHELLS,
       tmux: TMUX_MISSING,
       defaultShellPath: null,
     });
-    expect(findDefaultShellIndex(items)).toBe(-1);
+    expect(findDefaultShellFlatIndex(sections)).toBe(-1);
   });
 });

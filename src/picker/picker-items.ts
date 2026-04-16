@@ -4,7 +4,6 @@ import type { TmuxDiscoveryResult } from "../profiles/tmux-discovery";
 export type PickerSectionLabel = "Launch new" | "Attach to tmux session";
 
 export type PickerItem =
-  | { kind: "header"; label: PickerSectionLabel }
   | {
       kind: "shell";
       path: string;
@@ -14,18 +13,25 @@ export type PickerItem =
   | { kind: "new-tmux" }
   | { kind: "tmux-session"; name: string };
 
-export interface BuildPickerItemsInput {
+export interface PickerSection {
+  label: PickerSectionLabel;
+  items: PickerItem[];
+}
+
+export interface BuildPickerSectionsInput {
   shells: DiscoveredShell[];
   tmux: TmuxDiscoveryResult;
   defaultShellPath: string | null;
 }
 
-export function buildPickerItems(input: BuildPickerItemsInput): PickerItem[] {
-  const items: PickerItem[] = [];
+export function buildPickerSections(
+  input: BuildPickerSectionsInput,
+): PickerSection[] {
+  const sections: PickerSection[] = [];
 
-  items.push({ kind: "header", label: "Launch new" });
+  const launchItems: PickerItem[] = [];
   for (const shell of input.shells) {
-    items.push({
+    launchItems.push({
       kind: "shell",
       path: shell.path,
       name: shell.name,
@@ -35,23 +41,25 @@ export function buildPickerItems(input: BuildPickerItemsInput): PickerItem[] {
     });
   }
   if (input.tmux.installed) {
-    items.push({ kind: "new-tmux" });
+    launchItems.push({ kind: "new-tmux" });
+  }
+  if (launchItems.length > 0) {
+    sections.push({ label: "Launch new", items: launchItems });
   }
 
   if (input.tmux.installed && input.tmux.sessions.length > 0) {
-    items.push({ kind: "header", label: "Attach to tmux session" });
-    for (const session of input.tmux.sessions) {
-      items.push({ kind: "tmux-session", name: session.name });
-    }
+    const attachItems: PickerItem[] = input.tmux.sessions.map((session) => ({
+      kind: "tmux-session" as const,
+      name: session.name,
+    }));
+    sections.push({ label: "Attach to tmux session", items: attachItems });
   }
 
-  return items;
+  return sections;
 }
 
 function itemSearchText(item: PickerItem): string {
   switch (item.kind) {
-    case "header":
-      return item.label;
     case "shell":
       return item.name;
     case "new-tmux":
@@ -61,52 +69,55 @@ function itemSearchText(item: PickerItem): string {
   }
 }
 
-export function filterPickerItems(
-  items: PickerItem[],
+export function filterPickerSections(
+  sections: PickerSection[],
   query: string,
-): PickerItem[] {
+): PickerSection[] {
   const q = query.trim().toLowerCase();
-  if (q.length === 0) return items.slice();
+  if (q.length === 0) return sections.slice();
 
   const tokens = q.split(/\s+/);
   const matches = (item: PickerItem) => {
-    if (item.kind === "header") return false;
     const text = itemSearchText(item).toLowerCase();
     return tokens.every((t) => text.includes(t));
   };
 
-  const result: PickerItem[] = [];
-  let currentHeader: PickerItem | null = null;
-  let pendingLeaves: PickerItem[] = [];
-
-  const flushSection = () => {
-    if (pendingLeaves.length > 0) {
-      if (currentHeader) result.push(currentHeader);
-      result.push(...pendingLeaves);
-    }
-    currentHeader = null;
-    pendingLeaves = [];
-  };
-
-  for (const item of items) {
-    if (item.kind === "header") {
-      flushSection();
-      currentHeader = item;
-      continue;
-    }
-    if (matches(item)) {
-      pendingLeaves.push(item);
+  const result: PickerSection[] = [];
+  for (const section of sections) {
+    const matched = section.items.filter(matches);
+    if (matched.length > 0) {
+      result.push({ label: section.label, items: matched });
     }
   }
-  flushSection();
-
   return result;
 }
 
-export function findDefaultShellIndex(items: PickerItem[]): number {
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (item.kind === "shell" && item.isDefault) return i;
+export interface FlattenedSections {
+  items: PickerItem[];
+  /** Map from flat-index → section label, populated only for the first item of each section. */
+  sectionStartLabels: Map<number, PickerSectionLabel>;
+}
+
+export function flattenSections(
+  sections: PickerSection[],
+): FlattenedSections {
+  const items: PickerItem[] = [];
+  const sectionStartLabels = new Map<number, PickerSectionLabel>();
+  for (const section of sections) {
+    if (section.items.length === 0) continue;
+    sectionStartLabels.set(items.length, section.label);
+    items.push(...section.items);
+  }
+  return { items, sectionStartLabels };
+}
+
+export function findDefaultShellFlatIndex(sections: PickerSection[]): number {
+  let flatIndex = 0;
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (item.kind === "shell" && item.isDefault) return flatIndex;
+      flatIndex += 1;
+    }
   }
   return -1;
 }

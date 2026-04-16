@@ -18,3 +18,19 @@
 .obsidian-terminal-view .xterm-viewport {
   background-color: transparent !important;
 }
+
+/* Profile-picker section labels: decorative DOM siblings of the suggestion
+   list, not selectable items. Theme-token-driven so the contrast holds in
+   both light and dark themes (R1). pointer-events:none defends R4 even
+   though the element is also outside .suggestion-item by construction. */
+.anvil-picker-header {
+  padding: 6px 12px 2px;
+  color: var(--text-faint);
+  background-color: var(--background-secondary);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  user-select: none;
+}
