@@ -29,7 +29,7 @@ The other supersession-derived features (FI-015 settings, FI-016 theming, FI-017
 
 - **Undocumented Obsidian APIs need feature-detect + graceful-degrade.** Three already exist in production: `rootSplit.setDirection`, `workspace.createLeafInParent`, `SuggestModal.chooser.setSelectedItem`. Anything new from Phase 2's spike (`WorkspaceTabs`, `rootSplit.createSplit`, etc.) joins that set. The canonical pattern is `src/dock/bottom-dock.ts:47–63` — try, detect, fall back without crashing.
 - **`TerminalBackend` interface MUST NOT be widened.** Per-view config flows through `TerminalView.setState`/`getState` with a typed launch spec — confirmed-working pattern across Phases 2b/3/3.5. New chrome must respect this seam.
-- **`styles.css` is single-line minified** (bundled xterm CSS dominates the file). Phase 1 is the first phase to add custom styles since the minification — it inherits the choice between adding a pretty-print build step or accepting hand-edit pain.
+- **CSS authoring goes in `src/styles.css`.** That file is the hand-authored source. `esbuild.config.mjs:67–73` bundles xterm's CSS in front of it and minifies the result into the deployed `styles.css` at the repo root. Don't hand-edit the deployed file — it'll be overwritten on next build.
 - **macOS arm64 only.** Same as the parent meta-plan.
 
 ## Dependency Map
