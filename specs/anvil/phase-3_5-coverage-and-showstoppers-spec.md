@@ -6,7 +6,7 @@ Fix the severe regression that Phase 3's manual test walkthrough surfaced — Ct
 
 Note: FI-002 (rootSplit children reorientation) was originally scoped into this phase but was closed as invalid on 2026-04-16 after user clarification. The restore works correctly; the original report was a miscommunication about the flatten-while-open behavior, which is expected per D7.
 
-## Decisions for review
+## Decision log
 
 ### D1: FI-007 scope model → asymmetric (Cmd → Obsidian, Ctrl → shell) **[RESOLVED]**
 

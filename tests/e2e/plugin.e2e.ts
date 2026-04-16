@@ -123,20 +123,30 @@ describe("anvil-obsidian-terminal", function () {
     expect(text).not.toContain("Obsidian Terminal — type 'help'");
   });
 
-  it("Ctrl-C dispatched inside the focused terminal does NOT leak to Obsidian", async function () {
+  it("Ctrl-C dispatched inside the focused terminal reaches xterm but not Obsidian", async function () {
+    // Two-sided contract (FI-007 / Phase 3.5 AC3):
+    //   (a) Obsidian's document-level handler must NOT see the keydown.
+    //   (b) xterm's textarea MUST see the keydown at target phase.
+    // Pre-Phase-3.5 this only asserted (a), and passed for the wrong reason —
+    // the catch-all scope was killing the event before xterm could process it.
     await openTerminal();
     await focusTerminal();
 
-    const leaked = await browser.execute(() => {
-      let seen = false;
-      const probe = (ev: KeyboardEvent) => {
-        if (ev.ctrlKey && ev.key === "c") seen = true;
+    const result = await browser.execute(() => {
+      let documentSawCtrlC = false;
+      let targetSawCtrlC = false;
+      const documentProbe = (ev: KeyboardEvent) => {
+        if (ev.ctrlKey && ev.key === "c") documentSawCtrlC = true;
       };
-      document.addEventListener("keydown", probe);
+      const ta = document.querySelector(
+        ".obsidian-terminal-view .xterm-helper-textarea",
+      ) as HTMLElement | null;
+      const targetProbe = (ev: KeyboardEvent) => {
+        if (ev.ctrlKey && ev.key === "c") targetSawCtrlC = true;
+      };
+      document.addEventListener("keydown", documentProbe);
+      ta?.addEventListener("keydown", targetProbe);
       try {
-        const ta = document.querySelector(
-          ".obsidian-terminal-view .xterm-helper-textarea",
-        ) as HTMLElement | null;
         ta?.focus();
         const ev = new KeyboardEvent("keydown", {
           key: "c",
@@ -146,12 +156,14 @@ describe("anvil-obsidian-terminal", function () {
           cancelable: true,
         });
         ta?.dispatchEvent(ev);
-        return seen;
+        return { documentSawCtrlC, targetSawCtrlC };
       } finally {
-        document.removeEventListener("keydown", probe);
+        document.removeEventListener("keydown", documentProbe);
+        ta?.removeEventListener("keydown", targetProbe);
       }
     });
-    expect(leaked).toBe(false);
+    expect(result.documentSawCtrlC).toBe(false);
+    expect(result.targetSawCtrlC).toBe(true);
   });
 
   it("closing and reopening the terminal leaves no console errors", async function () {

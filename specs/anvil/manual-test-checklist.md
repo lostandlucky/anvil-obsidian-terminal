@@ -26,11 +26,12 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 
 ### MT-002: Ctrl-C interrupts a running process
 **What:** Run `sleep 30`, press Ctrl-C, verify prompt returns immediately and exit code reflects SIGINT.
-**Why manual:** Signal delivery through the PTY chain is easier to eyeball than to assert.
+**Why manual:** Signal delivery through the PTY chain is easier to eyeball than to assert. Note that automated coverage was added in Phase 3.5 — `tests/e2e/keyboard-passthrough.e2e.ts` now exercises the real-keyboard path via WebdriverIO. This row remains as a human sanity check against the pinned binary.
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
-| 2026-04-14 | 1.12.7 | phase-2b | ✅ | Session handoff confirmed pass |
+| 2026-04-14 | 1.12.7 | phase-2b | ⚠️ retroactively invalid | Originally marked ✅ via session handoff but never end-to-end verified with a real physical keypress. Re-checking on 2026-04-14 during Phase 3 (MT-012) revealed Ctrl-C did not reach the PTY at all — see [FI-007](future-ideas-backlog.md). The Phase 2b e2e cheated by calling `backend.write("\x03")` directly, bypassing the keyboard pipeline. Treat this row as a gap in the test log, not a real pass. |
+| 2026-04-16 | 1.12.7 | phase-3.5 | ⏳ pending user verification | FI-007 fix landed (asymmetric Cmd/Ctrl scope rewrite in `TerminalView`). Automated `keyboard-passthrough.e2e.ts` real-keyboard Ctrl-C test passes against the pinned 1.12.7 binary. User to verify manually with physical keypress before closing Phase 3.5 — covers AC7 of `phase-3_5-coverage-and-showstoppers-spec.md`. |
 
 ### MT-003: Resize reflows the shell
 **What:** Run `tput cols; tput lines`, resize the Obsidian window, run it again. Verify shell sees the new dimensions and that any running TUI reflows correctly.

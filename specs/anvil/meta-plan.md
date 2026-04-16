@@ -166,6 +166,28 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 ---
 
+## Phase 3.5: Coverage + Showstopper Fixes (interstitial)
+
+**Goal:** Fix the FI-007 keyboard regression that Phase 3's manual-test walkthrough surfaced (real-keyboard Ctrl-C and Cmd-P were both blocked by the terminal scope), close the test-coverage gap that let it hide behind green CI, and honestly re-verify MT-002. A tight bug-fix slice between Phase 3 and Phase 4 — not a feature phase. FI-002 was originally bundled in but closed as invalid mid-phase.
+
+**Dependencies:** Phase 3 complete. Manual test findings recorded.
+
+**Spec:** `specs/anvil/phase-3_5-coverage-and-showstoppers-spec.md`
+**Completion report:** `specs/anvil/phase-3_5-coverage-and-showstoppers-completion.md`
+
+**Success criteria:**
+- Real-keyboard Ctrl-C reaches the PTY; Cmd-P opens Obsidian's command palette while the terminal is focused
+- Existing `tests/e2e/keyboard-passthrough.e2e.ts` RED tests turn GREEN
+- `tests/e2e/plugin.e2e.ts`'s "doesn't leak to Obsidian" test upgraded to a two-sided contract (also asserts xterm received the keydown)
+- No regressions in the existing unit + e2e suites
+- MT-002 honestly re-verified, original ⚠️ retroactively-invalid mark applied to the Phase 2b row
+- `TerminalBackend` interface NOT widened
+
+**Risk flags:**
+- Asymmetric Cmd/Ctrl model is macOS-specific; documented as a constraint that FI-011 will need to redesign for Windows/Linux
+
+---
+
 ## Phase 4: Settings, Polish + Distribution
 
 **Goal:** Make the plugin installable and configurable. Settings UI (default shell, font size, theme, keybindings), Obsidian theme integration (light/dark), distribution packaging (GitHub release with bundled PTY backend), and edge case fixes from dogfooding.
@@ -201,6 +223,14 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 - **D8 tab-group isolation passes with no isolation code.** `tests/e2e/tab-isolation.e2e.ts` covers the quick-switcher/Cmd-click/split/drop entry points by asserting the terminal's xterm `offsetParent !== null` after the operation. If a future Obsidian change hides leaves via `visibility: hidden` instead of `display: none`, the test could false-pass — worth a manual re-judge if a user reports a regression.
 - **`usingFallback` flag on the bottom dock is unused.** `createBottomDock` exposes it but no caller reads it. Phase 4 polish could surface degraded-mode via the inline red ANSI pattern if that matters once real users are on it.
 - **`TerminalBackend` interface was not widened.** Multi-instance + tmux shellArgs both landed without touching the 6-method contract. If Phase 4 adds theme-plumbed features that need per-view config, keep resisting the urge to widen — `TerminalView.setState`/`getState` with a typed launch spec is the working pattern.
+
+### Notes from Phase 3.5
+
+- **Documentation followup is owed.** The new asymmetric Cmd/Ctrl keyboard model in `TerminalView` (drop the Obsidian scope swallow, add a single container-level bubble-phase `keydown` listener that calls `stopPropagation()` only on `ctrlKey && !metaKey`) is the first non-trivial WHY in the codebase that isn't obvious from the code. Code comment is intentionally one short line; the full rationale, the bubble-vs-capture timing argument, and the macOS-only tradeoff want a real explanation doc when `/document` runs in Phase 4. Likely `docs/explanations/keyboard-handling.md`.
+- **FI-011 (cross-platform) inherits this design directly.** The `containerKeydownHandler` is the right extension point for the recommended Option W-C ("commands to skip shell" list) — replace the hardcoded `ev.ctrlKey && !ev.metaKey` predicate with a configurable lookup, don't redesign the listener topology. The bubble-phase placement is what makes the asymmetric outcome possible.
+- **MT-002 is now `⏳ pending user verification`.** Phase 4's manual sweep should close it out. The retroactive `⚠️ invalid` annotation on the original Phase 2b row is permanent — future readers need it to understand why a ✅ row exists for a test that didn't actually pass.
+- **Reduced surface area in `TerminalView`.** The fix removed four private fields and ~30 lines of scope/focus machinery. If Phase 4 needs to add per-view keyboard config (theming hotkeys, FI-011 skip-list), keep resisting the urge to bring back a Scope-based mechanism — a single keydown handler with a predicate is the working pattern.
+- **Dependency maintenance kickoff still belongs to Phase 4.** Per the spec's source notes, 3.5 explicitly did not pull this work forward.
 
 ---
 

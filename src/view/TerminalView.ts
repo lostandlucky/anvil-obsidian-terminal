@@ -1,4 +1,4 @@
-import { ItemView, Plugin, Scope, ViewStateResult, WorkspaceLeaf } from "obsidian";
+import { ItemView, Plugin, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import * as path from "path";
 import * as os from "os";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
@@ -22,10 +22,7 @@ interface HostPlugin extends Plugin {
 export class TerminalView extends ItemView {
   private host: XtermHost | null = null;
   private backend: TerminalBackend | null = null;
-  private terminalScope: Scope | null = null;
-  private scopePushed = false;
-  private focusInHandler: ((ev: FocusEvent) => void) | null = null;
-  private focusOutHandler: ((ev: FocusEvent) => void) | null = null;
+  private containerKeydownHandler: ((ev: KeyboardEvent) => void) | null = null;
   private launchState: TerminalLaunchState = {};
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: HostPlugin) {
@@ -105,49 +102,18 @@ export class TerminalView extends ItemView {
     host.onData((data) => backend.write(data));
     host.onResize(({ cols, rows }) => backend.resize(cols, rows));
 
-    this.terminalScope = new Scope(this.app.scope);
-    const swallow = () => false;
-    for (const mods of [
-      ["Mod"],
-      ["Mod", "Shift"],
-      ["Mod", "Alt"],
-      ["Mod", "Shift", "Alt"],
-      ["Ctrl"],
-      ["Ctrl", "Shift"],
-      ["Ctrl", "Alt"],
-      ["Alt"],
-    ] as const) {
-      this.terminalScope.register([...mods], null, swallow);
-    }
-
-    const pushScope = () => {
-      if (!this.scopePushed && this.terminalScope) {
-        this.app.keymap.pushScope(this.terminalScope);
-        this.scopePushed = true;
+    // FI-007: stop Ctrl bubbling so Obsidian's keymap doesn't fire after xterm processes the key. Cmd left alone so the command palette still works.
+    this.containerKeydownHandler = (ev: KeyboardEvent) => {
+      if (ev.ctrlKey && !ev.metaKey) {
+        ev.stopPropagation();
       }
     };
-    const popScope = () => {
-      if (this.scopePushed && this.terminalScope) {
-        this.app.keymap.popScope(this.terminalScope);
-        this.scopePushed = false;
-      }
-    };
-
-    this.focusInHandler = (ev: FocusEvent) => {
-      if (container.contains(ev.target as Node)) pushScope();
-    };
-    this.focusOutHandler = (ev: FocusEvent) => {
-      const next = ev.relatedTarget as Node | null;
-      if (!next || !container.contains(next)) popScope();
-    };
-    container.addEventListener("focusin", this.focusInHandler);
-    container.addEventListener("focusout", this.focusOutHandler);
+    container.addEventListener("keydown", this.containerKeydownHandler);
 
     requestAnimationFrame(() => host.fit());
     host.focus();
 
-    // Start the backend after focus + scope handlers are in place so a slow
-    // handshake can't race the user's first keystroke.
+    // Start the backend after the keydown handler is in place so a slow handshake can't race the user's first keystroke.
     try {
       await backend.start();
     } catch (err) {
@@ -161,20 +127,10 @@ export class TerminalView extends ItemView {
 
   async onClose(): Promise<void> {
     const container = this.containerEl.children[1] as HTMLElement | undefined;
-    if (container && this.focusInHandler) {
-      container.removeEventListener("focusin", this.focusInHandler);
+    if (container && this.containerKeydownHandler) {
+      container.removeEventListener("keydown", this.containerKeydownHandler);
     }
-    if (container && this.focusOutHandler) {
-      container.removeEventListener("focusout", this.focusOutHandler);
-    }
-    this.focusInHandler = null;
-    this.focusOutHandler = null;
-
-    if (this.scopePushed && this.terminalScope) {
-      this.app.keymap.popScope(this.terminalScope);
-      this.scopePushed = false;
-    }
-    this.terminalScope = null;
+    this.containerKeydownHandler = null;
 
     if (this.backend) {
       await this.backend.close();
