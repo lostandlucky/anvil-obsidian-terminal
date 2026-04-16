@@ -24,7 +24,7 @@ The TypeScript side defines a [`TerminalBackend`](../../src/pty/terminal-backend
 
 ### 3. Plugin glue
 
-[`src/main.ts`](../../src/main.ts) and [`src/view/TerminalView.ts`](../../src/view/TerminalView.ts). Registers the Obsidian `ItemView`, exposes the `open-terminal` command in the command palette, mounts the renderer into the view, routes input from the renderer to whatever backend is wired in, and manages the hotkey guard. The only piece that imports both `obsidian` and the backend interface.
+[`src/main.ts`](../../src/main.ts) and [`src/view/TerminalView.ts`](../../src/view/TerminalView.ts). Registers the Obsidian `ItemView`, exposes the `open-terminal` command in the command palette, mounts the renderer into the view, routes input from the renderer to whatever backend is wired in, and installs the container-level keyboard routing handler (see below). The only piece that imports both `obsidian` and the backend interface.
 
 **Status:** Shipped (Phase 2b). The view routes input to a `PtyBackend` instance and surfaces backend errors as red ANSI lines in the xterm buffer.
 
@@ -44,9 +44,11 @@ resize       → host.onResize   → backend.resize → WebSocket frame → PTY
 
 The renderer never sees Obsidian. The backend never sees Obsidian. Only the glue does.
 
-## The hotkey guard
+## Keyboard routing
 
-A load-bearing piece of glue worth calling out. `TerminalView` pushes a `Scope` onto Obsidian's `app.keymap` whenever the terminal container is focused, and pops it on focus out. The scope handles every modified chord pattern (`Mod`, `Mod+Shift`, `Mod+Alt`, `Mod+Shift+Alt`, `Ctrl`, `Ctrl+Shift`, `Ctrl+Alt`, `Alt`) with a wildcard key, so chord hotkeys like Cmd-P and Ctrl-C don't fire Obsidian commands while the terminal is focused. Plain unmodified keys are not blocked — xterm's textarea still receives ordinary typing. This part of the glue is the most likely to bite future-you if it is weakened.
+A load-bearing piece of glue worth calling out. `TerminalView` installs a single keydown listener on the terminal container element in the **bubble phase**. The handler calls `stopPropagation()` only when the event has `ctrlKey && !metaKey`. Cmd-modified keys are left alone and bubble normally to Obsidian's keymap; Ctrl-modified keys reach xterm at target phase (so the textarea can write the right control byte to the PTY) and are then stopped from continuing up to any document-level Obsidian listener. Plain unmodified keys aren't touched — xterm's textarea receives ordinary typing as usual.
+
+The asymmetric outcome (Cmd → Obsidian, Ctrl → shell) is macOS-specific and intentional. The model and the phasing rationale live in [`docs/explanations/keyboard-handling.md`](../explanations/keyboard-handling.md); the decision record is [ADR 0004](../adr/0004-keyboard-handling-asymmetric-cmd-ctrl.md). Anyone tempted to "simplify" this to a document-level scope or capture-phase listener will reintroduce [FI-007](../../specs/anvil/future-ideas-backlog.md).
 
 ## What is not here
 

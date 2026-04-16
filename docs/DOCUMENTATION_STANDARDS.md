@@ -2,26 +2,27 @@
 
 This file defines how documentation works in the anvil-obsidian-terminal repo: what kinds of docs exist, where they live, and how they get written. It's the rules of the road. The execution half is `/document` — run that when you want to generate, update, or audit docs against these standards. Edit this file directly whenever the rules need to change; it's prose, meant to be human-maintained.
 
-Audience for the docs themselves is **future-self plus the occasional early external installer** — enough to get someone who's never seen this plugin to a working install and a working dev loop, without committing to a full public-release doc set. `Explanation`-style docs (architecture essays, deep dives into why things are the way they are) are deliberately deferred until there's a real audience asking for them. The absence of an Explanation section below is intentional, not an oversight.
+Audience for the docs themselves is **future-self plus the occasional early external installer** — enough to get someone who's never seen this plugin to a working install and a working dev loop, without committing to a full public-release doc set. Explanation docs are in scope but used sparingly — most architectural rationale still belongs in an ADR. See `## Explanations` below for when to write a freestanding Explanation vs. compress into an ADR.
 
 ## Diátaxis Types Used
 
-Three quadrants are in scope:
+Four quadrants are in scope:
 
 - **Reference.** Hand-written prose under `docs/reference/`. One file per logical unit (commands, settings, the `TerminalView`, the PTY backend once it exists). Third-person, factual, no procedural steps.
 - **How-To.** Task-oriented guides under `docs/how-to/`. Titles are problems, not features: "How to run the e2e suite," not "The e2e suite." Second-person ("you"). Seed topics: dev setup, manual install, running tests.
+- **Explanation.** Standalone conceptual docs under `docs/explanations/`. Use sparingly — only when the *model* is the thing worth documenting and a decision-shaped artifact (ADR) won't carry the educational arc. See `## Explanations` below for the rule.
 - **ADR.** Architecture decision records under `docs/adr/`. MADR-minimal format. See the ADRs section below.
 
 **Tutorial** is collapsed into the README (see `## README` below). The README walks a first-time installer from zero to a running terminal pane; that's the tutorial. There is no separate `docs/tutorial/` folder.
 
-**Explanation** is deferred as a folder. The conceptual content that would normally live there has been *reassigned* to specific named slots so it doesn't fall through cracks:
+Explanation-shaped content also tends to land in named slots that are *not* `docs/explanations/`. Before reaching for a freestanding Explanation, check whether one of these is a better fit:
 
 - **Project pitch and target audience** → the `## What this is` section of the root `README.md`.
 - **Architecture map** (what the moving pieces are and how they connect) → `docs/reference/architecture.md`. Stays factual and structural; no rationale, no narrative.
-- **Rationale and tradeoffs behind a decision** → an ADR under `docs/adr/`.
+- **Rationale and tradeoffs behind a decision** → an ADR under `docs/adr/` (often paired with an Explanation if the model is load-bearing — see `## Explanations`).
 - **Conceptual context for a specific task** → the intro paragraph of the relevant how-to.
 
-If you find yourself wanting to write a freeform Explanation doc, stop and figure out which of the four slots above it belongs in. Architectural reasoning is usually an ADR. The "what is this thing and what shape does it have" question splits between the README pitch and the architecture reference.
+Default to ADR + reassignment first. Reach for `docs/explanations/` only when those genuinely can't carry the model the reader needs. The "what is this thing and what shape does it have" question splits between the README pitch and the architecture reference.
 
 ## README
 
@@ -75,6 +76,23 @@ Location: `docs/how-to/`. Problem-oriented titles. Seed the folder with:
 - `run-tests.md` — `npm run test:unit` and `npm run test:e2e`, including the wdio-obsidian-service caveats.
 
 A good how-to has a one-sentence problem statement at the top ("You want to X"), then ordered steps, then a "troubleshooting" section only if there are known gotchas. No backstory, no architecture asides. If you need to explain why a step exists, link to an ADR.
+
+## Explanations
+
+Location: `docs/explanations/`. Used sparingly. The decision-shaped artifact (ADR) is still the default for architectural rationale; reach for an Explanation only when one of these holds:
+
+- The decision can't be compressed to MADR-minimal Context/Decision/Consequences without losing the part future-you actually needs — usually because the *model* is the thing, not the conclusion.
+- A reader new to the codebase needs to leave with a mental model of how something works, not a record of what was picked.
+- The topic has cross-cutting implications (a future redesign will inherit the model) that an ADR's Consequences section can't carry without bloating.
+
+A good Explanation walks the reader from "here's the problem space" through "here's the model we picked" to "here's the worked mechanism." It pairs naturally with an ADR — the ADR records the decision in MADR shape and links to the Explanation for the why and the model. Don't write Explanations for decisions whose ADR already says enough.
+
+When a topic gets a freestanding Explanation, link to it from:
+
+- the matching ADR under `docs/adr/` (the ADR's Decision or Consequences section names the Explanation as the load-bearing artifact for the model)
+- `docs/reference/architecture.md` if the topic is structural
+
+Voice: same prose register as the rest of the docs (terse, direct, explain *why*). Worked examples are encouraged where they make the model concrete. Don't write tutorials in disguise — Explanations don't have ordered steps.
 
 ## ADRs
 
