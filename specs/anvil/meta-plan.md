@@ -231,6 +231,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 - **MT-002 is now `⏳ pending user verification`.** Phase 4's manual sweep should close it out. The retroactive `⚠️ invalid` annotation on the original Phase 2b row is permanent — future readers need it to understand why a ✅ row exists for a test that didn't actually pass.
 - **Reduced surface area in `TerminalView`.** The fix removed four private fields and ~30 lines of scope/focus machinery. If Phase 4 needs to add per-view keyboard config (theming hotkeys, FI-011 skip-list), keep resisting the urge to bring back a Scope-based mechanism — a single keydown handler with a predicate is the working pattern.
 - **Dependency maintenance kickoff still belongs to Phase 4.** Per the spec's source notes, 3.5 explicitly did not pull this work forward.
+- **New cosmetic finding from the AC7 manual sweep: [FI-013](future-ideas-backlog.md).** Obsidian's editor status overlay (`0 backlinks / 0 words / 0 characters`) covers the terminal's bottom row when a note is open. Three fix candidates in the FI entry; candidate 2 (Anvil status bar) is the one most likely to absorb [FI-003](future-ideas-backlog.md) (close affordance) and possibly [FI-006](future-ideas-backlog.md) (drag handle) too — worth scoping these together when Phase 4 plans dock chrome.
 
 ---
 

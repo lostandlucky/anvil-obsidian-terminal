@@ -175,3 +175,19 @@ The current Phase 2b scope was symmetric (`Mod` and `Ctrl` both swallowed) which
 **When to reconsider:** When Steve (or a user) complains about tmux session names being unhelpful, or when tmux session management grows a "rename" or "list with metadata" feature. Likely Phase 4 settings work or later.
 
 **Origin:** Phase 3 planning session, 2026-04-14.
+
+## FI-013: Obsidian editor status overlay covers terminal's bottom line
+**What:** When a note is open in the editor area above the docked terminal, Obsidian renders a floating status overlay in the bottom-right corner of the editor pane (`0 backlinks / ✏ 0 words / 0 characters / sync indicator`). That overlay extends down past the editor pane's geometric bottom and visually covers the **last visible row** of terminal text below it. Typing wraps fine because xterm itself sees the full pane height — only the rendering is occluded. With no note open, the overlay disappears and the terminal looks correct.
+
+**Why this is a us problem, not an Obsidian problem:** Obsidian assumes the bottom of the editor pane is over content the user is actively editing — letting the overlay extend slightly past the geometric bottom is fine when there's editor whitespace below. Our terminal is rendered tightly to the pane bottom (xterm rows pack right up against the edge), so the overlay's overshoot lands on top of the last terminal row instead of empty space.
+
+**Fix candidates:**
+1. **Bottom padding on `.obsidian-terminal-view`.** Reserve ~24–32px at the bottom of the terminal container via CSS, sized to clear Obsidian's overlay. Cheapest, but the magic number will rot if Obsidian's overlay grows or moves, and the padding is wasted vertical space when no note is open. Could be conditioned on whether the editor pane is a sibling, but that's brittle layout introspection.
+2. **Anvil status bar at the bottom of the terminal.** Render our own thin status row at the bottom of the terminal pane (e.g. shell name + cwd, or session info for tmux). Pushes xterm's render area up by the status bar's height, so Obsidian's overlay lands on our chrome instead of terminal text. Doubles as a place for future affordances ([FI-003](future-ideas-backlog.md) close button, profile/session label, sync state). **Tmux interaction:** tmux ships its own green status line at row N-1 by default — stacking would mean two status rows, ours from the plugin (chrome) and tmux's from inside the PTY (content). Probably fine because they convey different information (ours = Obsidian/plugin chrome, tmux's = inside-the-session state), but worth a deliberate look at the spacing/contrast before shipping.
+3. **Move/hide the Obsidian overlay when a terminal is the bottom dock.** Reach into Obsidian's status overlay via internal API and either suppress it or shift it up while the dock is open. Most invasive, depends on undocumented internals, easiest to break on Obsidian updates. Probably not worth it.
+
+**Why deferred:** Cosmetic — typed input, scrollback, and shell behavior are all unaffected. The user can also scroll up one line to see the obscured row. Not a blocker for v1 use; lands naturally with Phase 4 polish.
+
+**When to reconsider:** Phase 4 polish, alongside [FI-003](future-ideas-backlog.md) (close affordance) and [FI-004](future-ideas-backlog.md) (height persistence). If we go with candidate 2 (status bar) it likely absorbs FI-003's close button as well — worth deciding both together.
+
+**Origin:** Phase 3.5 user manual smoke check, 2026-04-16. Screenshot in conversation.
