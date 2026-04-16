@@ -10,16 +10,29 @@ Rules:
 
 ---
 
-## FI-002: rootSplit children reorientation on dock close
-**What:** When the bottom dock closes, restore not just `rootSplit.direction` but the visual layout of pre-existing children. Today `setDirection(original)` flips the property back without reorienting the children that were flattened on open, so a workspace that started with `[Note A | Note B]` columns stays stuck as `[Note A / Note B]` rows after the terminal closes. New splits after close behave correctly (the direction property is right), but existing splits don't reflow.
+## ~~FI-002: rootSplit children reorientation on dock close~~ — CLOSED, INVALID
+**What was reported:** When the bottom dock closes, pre-existing children stay as rows instead of restoring to columns.
 
-**Why deferred:** Surfaced at the end of Phase 3 via MT-006 manual test. Fix needs investigation — the `identity16/obsidian-terminal` reference we copied either has the same bug or has children-reorientation logic we missed. The proper fix also needs a stronger e2e: pre-split the workspace, snapshot layout, open+close terminal, assert the layout matches. `tests/e2e/bottom-dock.e2e.ts` currently does a property-only check against an empty workspace, which is why this slipped through.
+**What actually happens:** The restore DOES work. Pre-existing columns flatten to rows while the terminal is docked (expected per D1/D7), and return to side-by-side columns when the terminal closes. The original MT-006 finding was a miscommunication: the user was asking about the flatten-while-open behavior (which is expected and already covered by MT-007's subjective acceptance), not about the restore being broken. Confirmed by the user on 2026-04-16.
 
-**Workaround today:** Users can manually re-split after closing the terminal. Not great, but bounded.
+**Why the e2e kept passing:** Because there was no bug. The `bottom-dock.e2e.ts` pre-split restore test passes because the restore genuinely works.
 
-**When to reconsider:** Phase 4 polish, or sooner if a dogfooding user with a real multi-column workflow finds it intolerable. Treat MT-006 as a standing manual regression until the fix ships.
+**Origin:** Phase 3 manual testing, 2026-04-14. Closed 2026-04-16 after clarification.
 
-**Origin:** Phase 3 manual testing, 2026-04-14. User found it immediately on the first real multi-column test.
+## FI-012: Wrap-and-dock — avoid the flatten entirely by nesting existing children
+**What:** Instead of flipping `rootSplit.direction` on dock open (which flattens pre-existing columns into rows), wrap all existing rootSplit children into a new intermediate `WorkspaceSplit` with the original direction, then set rootSplit to horizontal, and add the terminal as a sibling of the wrapper. Result: columns stay as columns inside the wrapper, terminal docks below as a full-width row. No flatten at all.
+
+**Proof of concept:** Confirmed during Phase 3 manual testing on 2026-04-16. With rootSplit already horizontal (terminal docked), the user clicked "Split" on a note — Obsidian's own split command automatically created a nested vertical `WorkspaceSplit` wrapper, giving exactly the desired layout: two note columns side-by-side on top, full-width terminal below. Screenshot captured. Obsidian already knows how to create and manage these nested splits; the question is what internal API call triggers the wrapping and whether we can invoke it programmatically.
+
+**Investigation needed:** Determine how to programmatically create a `WorkspaceSplit` and reparent existing children into it. Candidates: `rootSplit.createSplit()`, manual child reparenting via the workspace internals, or reverse-engineering what `workspace:split-vertical` does under the hood. A short spike against the Obsidian 1.12.7 binary should surface the API.
+
+**On close:** Move children back from wrapper to rootSplit, remove the empty wrapper, restore rootSplit direction. Inverse of the open path.
+
+**Why deferred:** Current "flip blindly" approach works and was accepted (MT-007: "jarring but acceptable" for the always-on-terminal use case). This improvement eliminates the "jarring" entirely, which is strictly better UX, but requires an API investigation spike that's out of scope for Phase 3.5's tight focus on FI-007.
+
+**When to reconsider:** Phase 4 polish, specifically alongside FI-003 (close affordance) and FI-004 (height persistence) — the three together would make the dock feel production-grade.
+
+**Origin:** Phase 3 manual testing follow-up discussion, 2026-04-16.
 
 ## FI-003: Close affordance on bottom dock leaf
 **What:** The terminal view lives directly under `rootSplit` with no tab strip, so it has no X button or visible close option. The view header's `...` menu is also empty. Closing the dock requires clicking the header (not the terminal body), then Cmd-W. Needs a dedicated close button or a `...`-menu item so the close path is discoverable.
@@ -47,6 +60,36 @@ Rules:
 **When to reconsider:** Phase 4 or later. Might motivate a "toggle dock visibility" command distinct from "close terminal."
 
 **Origin:** Phase 3 manual testing, 2026-04-14.
+
+## FI-011: Windows (and Linux) compatibility — keyboard model collapses, needs a commands-to-skip-shell list
+**What:** The plugin is explicitly macOS arm64 only today per `CLAUDE.md`, and cross-platform is deferred. When the project does take on Windows (and Linux), the Phase 3.5 D1 keyboard model won't carry over cleanly — it assumes macOS's Cmd/Ctrl separation, which doesn't exist on Windows or Linux. The fix isn't a small tweak; it's a redesign of the "who owns this key?" contract.
+
+**Why the Phase 3.5 model can't just be ported:**
+
+On macOS, Cmd (host-app modifier) and Ctrl (shell modifier) are separated by OS convention. `Cmd-C` = copy in apps, `Ctrl-C` = SIGINT in terminals, and these worlds don't collide because macOS users learn them as different keys from day one. Phase 3.5's asymmetric D1 model (drop Cmd registrations entirely, let Ctrl reach the shell) works because it rides that pre-existing separation and gives each modifier to its natural owner.
+
+On Windows and Linux, there's no separation. **Both Obsidian and the shell want Ctrl**, because Ctrl is the only meta-modifier those platforms use. `Ctrl-C` is *both* the shell SIGINT and Obsidian's copy / command-palette root. `Ctrl-W`, `Ctrl-P`, `Ctrl-R`, `Ctrl-K` all have meanings in both worlds. You cannot naively drop our swallow without destroying the shell, and you cannot keep the swallow without destroying Obsidian's command palette.
+
+**What real cross-platform terminal apps do:**
+
+1. **Windows Terminal** — reserves `Ctrl-Shift-X` for its own chrome (new tab, split pane, etc.) and lets plain `Ctrl-X` fall through to the shell. The meta modifier is widened by one key.
+2. **VS Code integrated terminal** — ships a setting called `terminal.integrated.commandsToSkipShell` that's explicitly the list of Ctrl bindings the terminal will NOT eat. Default gives `Ctrl-C` to the shell, and they have a separate setting `terminal.integrated.copyOnSelection` so selection-based copy still works without stealing Ctrl-C. Context-sensitive, user-configurable.
+3. **Windows `conhost`/`cmd.exe` historically** — gave Ctrl to the shell, used no meta-modifiers of its own, and the user lived with no quick-copy. Terrible UX; nobody uses it voluntarily now.
+4. **ConEmu, Cmder, Alacritty on Windows** — mostly follow Windows Terminal's "add Shift to the meta" pattern.
+
+**The three honest options for the cross-platform redesign:**
+
+- **Option W-A: Ctrl goes to the shell.** Obsidian's Ctrl-P, Ctrl-W, Ctrl-K, etc. do NOT fire while the terminal is focused. User must rebind those to `Ctrl-Shift-X` variants or use the Obsidian ribbon / mouse. Matches shell-user expectation, follows the macOS D1 spirit, but costs Obsidian's keyboard quickness.
+- **Option W-B: Ctrl goes to Obsidian.** The shell never sees Ctrl. Terminal is effectively broken for any serious use. Nobody actually does this.
+- **Option W-C (recommended): Context-sensitive, user-configurable.** Emulate VS Code's "commands to skip shell" list. Ship sensible defaults (`Ctrl-C`, `Ctrl-W`, `Ctrl-R`, `Ctrl-U`, `Ctrl-L`, `Ctrl-D`, the standard shell vocabulary) that route to the shell, and let everything else fall through to Obsidian. Users can edit the list in settings. Most work, best result. Also generalises cleanly back to macOS: the macOS variant is just "default commands-to-skip-list = all Ctrl keys, all Cmd keys never on the skip list," which is exactly Phase 3.5's D1 model.
+
+**Why deferred:** Project scope is explicitly macOS-only until further notice (`CLAUDE.md` → Key Decisions). PTY backend, shell discovery, and dock placement all carry additional macOS assumptions beyond the keyboard model — cross-platform is a whole-phase undertaking, not a patch.
+
+**When to reconsider:** Whenever cross-platform support re-enters the meta-plan. At that point, Phase 3.5's FI-007 fix will need to be revisited as part of the keyboard-model redesign — probably as a single slice inside whatever "cross-platform adaptation" phase ends up owning the port. Don't reopen it until then.
+
+**What Phase 3.5 should do about this today:** Nothing in the code. The macOS-only fix is the right fix for the macOS-only plugin. This entry exists so the next person to tackle cross-platform doesn't hit the scope rewrite cold and have to rediscover the design.
+
+**Origin:** Phase 3.5 planning conversation, 2026-04-15.
 
 ## FI-010: Picker section headers render indistinguishably from selectable rows
 **What:** `ProfilePickerModal` renders "Launch new" and "Attach to tmux session" as `kind: "header"` PickerItems in the same `SuggestModal` list as the actual selectable rows. Visually they look identical to the shell and session rows, and arrow-key navigation lands on them (the `onChooseSuggestion` handler routes header picks to `this.open()` as a reset, which is a hack). Users can't tell at a glance which rows are interactive.

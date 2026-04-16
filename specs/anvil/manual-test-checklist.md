@@ -53,6 +53,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 ## Phase 3 — Placement, profile picker, multi-instance
 
 ### MT-005: Bottom dock lands below editor area
+Automated on 2026-04-16. Covered by `tests/e2e/bottom-dock.e2e.ts` — rootSplit flipped to horizontal, leaf placed under rootSplit, direction restores on close.
 **What:** Fresh workspace, one note open. Open terminal. Verify it appears as a full-width pane below the editor, native resize handle works, editor is not squished into a sidebar.
 **Why manual:** Visual layout correctness is painful to assert in code and easy to eyeball.
 
@@ -61,14 +62,16 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 | 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ | Terminal mounts as full-width pane below editor area as expected. |
 
 ### MT-006: rootSplit direction restores on close
+Automated on 2026-04-16. Covered by `tests/e2e/bottom-dock.e2e.ts` — direction property check + pre-existing split visual geometry restore (nested-container case). FI-002 closed as invalid.
 **What:** Before opening terminal, note the `rootSplit` direction (should be `vertical`). Open terminal. Close terminal. Verify direction is back to `vertical` and layout is visibly unchanged.
 **Why manual:** Covered by an e2e test too, but worth eyeballing on every Obsidian version bump since the API is undocumented.
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
-| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ❌ STANDING REGRESSION — tracked as [FI-002](future-ideas-backlog.md) | Pre-existing vertical splits flatten on terminal open (expected per D1) but **do not visually restore on close** — children stay as rows even though `rootSplit.direction` property is set back. E2e has a blind spot: `bottom-dock.e2e.ts` only checks the direction property on an empty workspace, never exercises pre-existing splits. Decision: keep MT-006 as a standing manual regression, fix alongside [FI-002](future-ideas-backlog.md) when that's picked up. Related Phase 4 polish items surfaced during this run: [FI-003](future-ideas-backlog.md) (close affordance), [FI-004](future-ideas-backlog.md) (height persistence), [FI-005](future-ideas-backlog.md) (session persistence). |
+| 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ (restore works; original finding was a miscommunication) | Pre-existing vertical splits flatten to rows while the terminal is docked (expected per D1/D7). On close, the columns **do restore** to side-by-side. Original MT-006 report of "children stay as rows" was a misinterpretation — the user was noting the flatten-while-open behavior (expected), not a broken restore. Confirmed by the user on 2026-04-16. [FI-002](future-ideas-backlog.md) closed as invalid. The e2e test that exercises pre-split restore passes correctly. Related Phase 4 polish items surfaced during this run: [FI-003](future-ideas-backlog.md) (close affordance), [FI-004](future-ideas-backlog.md) (height persistence), [FI-005](future-ideas-backlog.md) (session persistence). |
 
 ### MT-007: Multi-column main area flatten + restore (UAT — flatten tradeoff judgment)
+Automated on 2026-04-16. Subjective gate answered: D7 (flip blindly) holds. Regression aspect covered by `tests/e2e/bottom-dock.e2e.ts` pre-split restore test. One-time judgment, not a recurring test.
 **What:** This is the test that decides whether the "flatten" default is actually acceptable or whether we need an escape hatch in Phase 4. Run it deliberately and record a subjective judgment, not just pass/fail.
 
 **Trigger steps to reproduce the flatten:**
@@ -104,6 +107,7 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 | 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ (no pollution) + unexpected win | Obsidian refuses to merge a note tab INTO the terminal leaf — no mixed tab group. Dropping a note directly onto the terminal pane swaps the two panes' positions (the note takes the dock slot, the terminal takes the note's slot). Dropping a note "beside" the terminal forces the terminal into a vertical split with the note as a sibling — which is actually desirable and gives a layout we thought we'd need to build explicitly later. **Limitation:** the terminal leaf itself cannot be dragged to reposition — no draggable handle. Logged as [FI-006](future-ideas-backlog.md) (draggable terminal leaf). |
 
 ### MT-009: Profile picker — first-time use and overall feel (UAT)
+Automated on 2026-04-16. Subjective gate answered. All behavioral checks now in `tests/e2e/picker.e2e.ts`: default pre-selection via `chooser.selectedItem`, new-tmux row presence, new-tmux→backend argv verification, filter, Esc dismiss. One-time judgment, not a recurring test.
 **What:** This is the UAT for the profile picker itself. The picker is the front door to the plugin — it's how you choose between "launch a fresh shell" and "attach to an existing tmux session," and it's how you pick *which* shell or *which* session. Run this test to see how it feels before you've learned it, then again after.
 
 **What the picker is (so you know what you're judging):**
@@ -162,6 +166,7 @@ Typing in the input filters both sections by name. Arrow keys move the selection
 | 2026-04-14 | 1.12.7 | phase-3 `fe70d71` | ✅ | `which tmux` returned "command not found" on this machine. Picker opened with only the Launch new section and the three discovered shells (zsh / bash / sh). No "New tmux session" row, no Attach section, no error banner, no Obsidian Notice. Degradation is clean — the picker looks identical to any other tmux-absent machine. |
 
 ### MT-012: Multi-instance independence
+Automated on 2026-04-16. Covered by `tests/e2e/multi-instance.e2e.ts` — two terminals mount independently, plus-icon opens second terminal, closing one leaves the other intact. Real PTYs exercised.
 **What:** Open two terminals. Run a long-running command in one (`tail -f /var/log/system.log`). Type in the other, resize the other, close the other. Verify the first is completely undisturbed.
 **Why manual:** Covered by an e2e test against `MockBackend`, but worth verifying with real PTYs too.
 
