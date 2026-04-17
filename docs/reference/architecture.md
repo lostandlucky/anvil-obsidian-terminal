@@ -20,13 +20,19 @@ The TypeScript side defines a [`TerminalBackend`](../../src/pty/terminal-backend
 
 **Status:** Shipped (Phase 2b). One backend per terminal view, one binary per backend; no shared state, no port pooling, no multiplexing. The decision and tradeoffs are recorded in [ADR 0003](../adr/0003-pty-backend.md).
 
+**Multi-instance isolation** is per-instance and inherited from the dock placement — the plugin does not implement a central coordinator. Each `TerminalView` owns its own `PtyBackend`, so process-level isolation between terminals is a consequence of the per-instance architecture. Tab-group isolation (note-tab operations cannot replace or sibling-into the terminal leaf) is provided by Obsidian's default workspace semantics under `rootSplit`; [`tests/e2e/tab-isolation.e2e.ts`](../../tests/e2e/tab-isolation.e2e.ts) is a verify-don't-implement suite that pins this behavior. [`tests/e2e/multi-instance.e2e.ts`](../../tests/e2e/multi-instance.e2e.ts) pins the per-instance side.
+
 **Mock REPL:** [`src/terminal/mock-repl.ts`](../../src/terminal/mock-repl.ts) is still in the tree but is no longer wired into the view. It remains as a unit-test reference for the seam shape and as offline scaffold.
 
 ### 3. Plugin glue
 
-[`src/main.ts`](../../src/main.ts) and [`src/view/TerminalView.ts`](../../src/view/TerminalView.ts). Registers the Obsidian `ItemView`, exposes the `open-terminal` command in the command palette, mounts the renderer into the view, routes input from the renderer to whatever backend is wired in, and installs the container-level keyboard routing handler (see below). The only piece that imports both `obsidian` and the backend interface.
+[`src/main.ts`](../../src/main.ts) and [`src/view/TerminalView.ts`](../../src/view/TerminalView.ts). `main.ts` loads and normalizes persisted settings, registers the Obsidian `ItemView`, exposes the `open-terminal` command, registers the `AnvilSettingsTab`, and wires the profile picker — discover available shells, discover tmux sessions, open [`ProfilePickerModal`](../../src/picker/profile-picker.ts), launch a terminal with the chosen spec. `TerminalView` mounts the renderer into the view, routes input from the renderer to whatever backend is wired in, and installs the container-level keyboard routing handler (see below). This is the only layer that imports both `obsidian` and the backend interface.
 
 **Status:** Shipped (Phase 2b). The view routes input to a `PtyBackend` instance and surfaces backend errors as red ANSI lines in the xterm buffer.
+
+The profile picker is a `SuggestModal` subclass at [`src/picker/profile-picker.ts`](../../src/picker/profile-picker.ts), with the section-aware data model in [`src/picker/picker-items.ts`](../../src/picker/picker-items.ts). Section headers render as decorated sibling DOM rather than selectable items; see [ADR 0005](../adr/0005-picker-section-labels-as-decorated-siblings.md).
+
+The settings tab lives in [`src/settings/`](../../src/settings/): [`settings.ts`](../../src/settings/settings.ts) defines the `AnvilSettings` shape and the `normalizeSettings` loader; [`settings-tab.ts`](../../src/settings/settings-tab.ts) is the `PluginSettingTab` subclass. Current fields: `defaultShell`, `userShellList`, `preserveTmuxDimensions`.
 
 ## How they connect
 
@@ -52,7 +58,4 @@ The asymmetric outcome (Cmd → Obsidian, Ctrl → shell) is macOS-specific and 
 
 ## What is not here
 
-- **Settings tab.** No user-configurable settings exist; no `SettingTab` is registered.
-- **Multi-instance isolation.** Multiple terminal panes can be opened, but no isolation guarantees beyond what each `TerminalView` provides on its own.
-- **Profile picker, tmux attach, shell selection.** Vision items deferred to Phase 3. The shell today is hardcoded to `process.env.SHELL || "/bin/zsh"`, launched at the vault root.
 - **Cross-platform support.** macOS Apple silicon only — see [ADR 0001](../adr/0001-macos-arm64-only.md).
