@@ -88,6 +88,78 @@ describe("pty-backend e2e", function () {
     await closeAllTerminalLeaves();
   });
 
+  // Regression-pin for the zsh PROMPT_EOL_MARK (reverse-video `%`) bug
+  // surfaced during Phase 3 dogfooding. When backend.start() is fired
+  // fire-and-forget inside addTab, the shell's initial SIGWINCH lands
+  // mid-startup and leaves the PTY in a line-mode state where bare `\n`
+  // doesn't return the cursor to column 0. zsh's promptcr check then
+  // stamps every prompt with `%` on its own line. The fix is to await
+  // backend.start() before switchTab so the shell comes up in a
+  // correctly-sized PTY and never sees that transitional state.
+  //
+  // If this test fails: someone likely reverted the ordering in
+  // TerminalContainerView.addTab. The fire-and-forget variant was tried
+  // to satisfy AC8 (tab persistence); AC8 was dropped — see
+  // specs/anvil/pane-chrome-and-picker/phase-3-workspace-container-completion-report.md
+  // "Post-merge rescope".
+  // Regression-pin for the zsh PROMPT_EOL_MARK bug surfaced during Phase 3
+  // dogfooding. The VISIBLE symptom — reverse-video `%` on every prompt —
+  // only reproduces under a specific combination of zsh config and PTY
+  // startup timing that the test environment doesn't share (test vault uses
+  // default zsh PS1; user's vault has a custom theme). We therefore pin the
+  // INVARIANT that was violated, not the symptom: when openDefaultTerminal
+  // resolves, the backend must have finished starting — i.e. its child PID
+  // must be non-null.
+  //
+  // If this fails: someone likely reverted addTab's `await backend.start()`
+  // to the fire-and-forget `void this.startBackend(...)` variant. That
+  // ordering introduces a race between the backend's boot and the switchTab
+  // → rAF fit → SIGWINCH sequence. When the SIGWINCH lands mid-startup,
+  // the PTY's line-mode ends up such that bare `\n` doesn't return cursor
+  // to column 0, and zsh's promptcr stamps every prompt with `%`.
+  //
+  // Full context: specs/anvil/pane-chrome-and-picker/phase-3-workspace-container-completion-report.md
+  // under "Post-merge rescope".
+  it("openDefaultTerminal waits for backend start (PROMPT_EOL_MARK regression pin)", async function () {
+    // Capture the backend's socket state AT THE MOMENT openDefaultTerminal
+    // resolves — inside the .then() callback, synchronous with resolution.
+    // PtyBackend.start() sets `this.child` synchronously (via spawn) and
+    // `this.socket` synchronously (via new WebSocket), so neither alone
+    // indicates full readiness. Only socket.readyState === OPEN (=1)
+    // becomes true after the awaited connectSocket resolves. With
+    // fire-and-forget, addTab returns before that await lands; the pin
+    // then catches the regression.
+    const stateAtResolve = await browser.executeAsync(
+      (id: string, viewType: string, done: (v: unknown) => void) => {
+        const app = (window as unknown as ObsidianWindow).app;
+        const plugin = app.plugins.plugins[id] as AnvilPluginLike;
+        void plugin.openDefaultTerminal().then(() => {
+          const leaves = app.workspace.getLeavesOfType(viewType);
+          const view = leaves[0]?.view as unknown as {
+            getActiveBackend?: () => unknown;
+          };
+          const backend = view?.getActiveBackend?.() as unknown as {
+            socket?: { readyState?: number } | null;
+            childPid?: () => number | null;
+          } | null;
+          done({
+            pid: backend?.childPid?.() ?? null,
+            socketReadyState: backend?.socket?.readyState ?? null,
+          });
+        });
+      },
+      PLUGIN_ID,
+      VIEW_TYPE,
+    );
+    const s = stateAtResolve as { pid: number | null; socketReadyState: number | null };
+    expect(s.pid).not.toBeNull();
+    expect(s.pid as number).toBeGreaterThan(0);
+    // WebSocket.OPEN === 1. Any other value (CONNECTING=0, CLOSING=2,
+    // CLOSED=3, or null) means backend.start() had not finished when
+    // addTab resolved — i.e. fire-and-forget was reintroduced.
+    expect(s.socketReadyState).toBe(1);
+  });
+
   it("printf MARKER round-trips through a real shell", async function () {
     await openTerminal();
     await focusTerminal();
