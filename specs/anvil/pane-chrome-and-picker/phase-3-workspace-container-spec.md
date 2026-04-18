@@ -8,7 +8,7 @@ Load-bearing guidance: [phase-2-lessons.md](phase-2-lessons.md). Read this befor
 
 ## Objective
 
-Apply ADR 0006's Rank 3 design to `src/`: replace the single-leaf `TerminalView` with a container `ItemView` that multiplexes N xterm instances inside one leaf, with plugin-drawn chrome (tab strip with per-tab close X, view-header `+` action, reserved empty bottom buffer), tab state serialization, and the load-bearing R8 mitigations (`createLeafInParent` placement, `view.navigation = false`). Old `TerminalView` removed by end of phase; throwaway prototype deleted.
+Apply ADR 0006's Rank 3 design to `src/`: replace the single-leaf `TerminalView` with a container `ItemView` that multiplexes N xterm instances inside one leaf, with plugin-drawn chrome (tab strip with per-tab close X, view-header `+` action, reserved empty bottom buffer) and the load-bearing R8 mitigations (`createLeafInParent` placement, `view.navigation = false`). Old `TerminalView` removed by end of phase; throwaway prototype deleted.
 
 ## Decisions (resolved 2026-04-17)
 
@@ -53,10 +53,12 @@ Apply ADR 0006's Rank 3 design to `src/`: replace the single-leaf `TerminalView`
 - `BottomDock` collapses to single-leaf semantics. `reconcileDock` becomes "is the container leaf open? yes/no."
 - `pendingSpecs` WeakMap + `consumePendingSpec` pattern can be retired if `addTab` takes the spec directly.
 
-### State serialization
+### Restart behaviour
 
-- `getState()` / `setState()` on the container view serializing `{ tabs: Array<{shell, cwd, shellArgs}> }` and restoring tabs in order on layout reload.
-- Serialization proves "open with N saved tabs → get N tabs back on restore." FI-005 (cross-session scrollback persistence) stays separate and out of scope.
+- Tab specs are NOT persisted across Obsidian close/reopen. Matches VS Code: a restart gives you a fresh terminal, not a replay of your prior session.
+- Obsidian's layout save still records that the container leaf existed. On reopen, the container is reconstructed with **one blank terminal** (the plugin's default shell) so the leaf isn't visibly empty. If the container was not open when Obsidian closed, it is not there on reopen.
+- Same behaviour applies to all view-reconstruction paths (workspace-plugin layout switch, popout). The PTY architecture cannot meaningfully preserve shell sessions across any of these boundaries — the renderer-bound `pty-server` child process is torn down with the old view.
+- FI-005 (cross-session scrollback persistence) remains separate and out of scope.
 
 ### Chrome styling
 
@@ -80,7 +82,7 @@ Apply ADR 0006's Rank 3 design to `src/`: replace the single-leaf `TerminalView`
 - Rewrite `tests/e2e/tab-isolation.e2e.ts` for the container view type.
 - Port R8a–R8e from `specs/anvil/pane-chrome-and-picker/phase-2-prototype/r8.e2e.ts` before deleting the prototype.
 - R8e is the regression-pin assertion (explicit `setViewState` clobber replaces the container — documented, not fixed).
-- Add coverage for: multi-tab open (one container, N tabs), tab switching preserves idle tab's PTY, tab state serialization round-trips through layout save/restore.
+- Add coverage for: multi-tab open (one container, N tabs), tab switching preserves idle tab's PTY.
 
 ### Documentation updates
 
@@ -110,7 +112,7 @@ Binary pass/fail outcomes.
 5. Per-tab close X is visible and clickable without keyboard fallback.
 6. Terminal height persists across close/reopen within the same session.
 7. **Hard no-overlap.** Obsidian's editor status overlay (backlinks / word-count / sync badge) does NOT visually cover any part of the xterm render area when a note is open above the container. Verified by (a) an e2e bounding-box check comparing the overlay's rendered rect against the `.xterm-viewport` rect — no intersection allowed — and (b) the manual step in User Testing. Non-negotiable: "our text goes behind the overlay" is a ship-blocker, not a cosmetic issue.
-8. Layout save/restore: workspace saved with 2 tabs reloads with 2 tabs in the same order with the same shells.
+8. Restart behaviour: if the container was open when Obsidian closed, reopening Obsidian presents the container with exactly **one** blank terminal (default shell). Tab specs from the prior session are explicitly NOT restored. If the container was not open, it is not present on reopen.
 9. All 5 R8 probes (a–e) pass in `tests/e2e/tab-isolation.e2e.ts` against the container view type. R8e is regression-pinned as "replaces the container" — flip indicates ADR 0006's "Harder" section needs revisiting.
 10. Feature-detect fallback path: when `workspace.createLeafInParent` is absent, container still opens, single console warning emitted, no crash.
 11. `npm run build && npm run test` green.
@@ -127,7 +129,7 @@ Binary pass/fail outcomes.
 3. **Background work survives switch.** Run `yes` (or `ping localhost`) in tab 2, switch to tab 1, wait a few seconds, switch back. Output has continued; scrollback and cursor position intact.
 4. **Close one tab.** Click X on tab 1. Only tab 1 closes; tab 2 unaffected.
 5. **Close last tab / container.** Close the final tab or the container leaf itself. Reopen via `Cmd-P`. Container returns (empty or seeded per container design).
-6. **Layout persistence.** With 2 tabs open, reload the workspace (Ctrl-R or quit/restart). Both tabs restore in order with their shells.
+6. **Restart behaviour.** With 2 tabs open, quit and reopen Obsidian. The container returns with exactly one blank terminal (not two, not the prior shells). If you instead close the container before quitting, the container should not be present after reopen.
 7. **Isolation against notes.** Open a note via Cmd-click wikilink, `Cmd-P → Quick switcher`, and Cmd-Shift-click (split). Confirm the container is never replaced, never sibling-into'd, and the note opens elsewhere.
 7a. **No-overlap check (AC7 manual leg).** With a note open above the terminal, look at the terminal's render area. Obsidian's status overlay (the floating backlinks / word-count / sync badge at the note's bottom-right) must NOT visually cover any xterm text. Try multiple terminal heights, multiple themes (light/dark), and multiple notes (backlink badge counts change width, sync indicator comes and goes). If the overlay ever clips into the xterm viewport, the build doesn't ship.
 7b. **Flatten behavior (FI-012).** Open two notes side-by-side (horizontal split). Open the terminal. If FI-012 shipped: the two notes stay side-by-side and the terminal docks below as full width. If FI-012 was cut during the spike: the notes stack vertically — note the behavior and confirm it matches the completion report's "cut, here's why" note.

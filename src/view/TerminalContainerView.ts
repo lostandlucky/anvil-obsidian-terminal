@@ -1,4 +1,4 @@
-import { ItemView, Plugin, ViewStateResult, WorkspaceLeaf } from "obsidian";
+import { ItemView, Plugin, WorkspaceLeaf } from "obsidian";
 import * as path from "path";
 import * as os from "os";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
@@ -17,6 +17,11 @@ interface HostPlugin extends Plugin {
   getDefaultShell?: () => string;
   getLastContainerHeight?: () => number | null;
   setLastContainerHeight?: (height: number) => void;
+  // True while the plugin is about to call `addTab(spec)` manually after
+  // `leaf.setViewState(...)` resolves. onOpen uses this to skip the default
+  // blank tab it would otherwise create when Obsidian reconstructs the view
+  // (app restart, workspace-plugin layout switch, popout).
+  isExpectingManualTab?: () => boolean;
 }
 
 interface TerminalTab {
@@ -38,7 +43,6 @@ export class TerminalContainerView extends ItemView {
 
   private tabs: TerminalTab[] = [];
   private activeTabId: string | null = null;
-  private pendingSpecs: TerminalTabSpec[] = [];
   private tabCounter = 0;
   private tabStripEl: HTMLElement | null = null;
   private contentAreaEl: HTMLElement | null = null;
@@ -64,37 +68,15 @@ export class TerminalContainerView extends ItemView {
     return "terminal-square";
   }
 
-  async setState(state: unknown, result: ViewStateResult): Promise<void> {
-    if (state && typeof state === "object") {
-      const s = state as Record<string, unknown>;
-      const rawTabs = Array.isArray(s.tabs) ? s.tabs : null;
-      if (rawTabs) {
-        this.pendingSpecs = rawTabs
-          .map((t) => this.coerceSpec(t))
-          .filter((spec): spec is TerminalTabSpec => spec !== null);
-      }
-    }
-    await super.setState(state, result);
-    // Build chrome eagerly + drain within setState so the caller (typically
-    // changeLayout) gets synchronous tab materialization. Drain relies on
-    // addTab being synchronous through this.tabs.push (backend starts async).
-    this.ensureChrome();
-    await this.drainPendingSpecs();
-  }
-
-  getState(): Record<string, unknown> {
-    const base = (super.getState() ?? {}) as Record<string, unknown>;
-    const tabs = this.tabs.map((t) => ({
-      shell: t.spec.shell,
-      shellArgs: t.spec.shellArgs,
-      cwd: t.spec.cwd,
-    }));
-    return { ...base, tabs };
-  }
-
   async onOpen(): Promise<void> {
-    this.ensureChrome();
-    await this.drainPendingSpecs();
+    this.buildChrome();
+    // If the plugin initiated this open, it will call addTab(spec) itself
+    // after setViewState resolves. Otherwise (app restart, workspace-plugin
+    // layout switch, popout), Obsidian reconstructed us on its own and we
+    // default to one blank terminal so the user doesn't see an empty shell.
+    if (!this.plugin.isExpectingManualTab?.()) {
+      await this.addTab(this.resolveDefaultSpec());
+    }
   }
 
   async onClose(): Promise<void> {
@@ -123,8 +105,7 @@ export class TerminalContainerView extends ItemView {
     this.bottomBufferEl = null;
   }
 
-  private ensureChrome(): void {
-    if (this.tabStripEl) return;
+  private buildChrome(): void {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
     root.addClass("anvil-terminal-container-view");
@@ -135,15 +116,6 @@ export class TerminalContainerView extends ItemView {
 
     this.restoreHeight();
     this.watchHeight();
-  }
-
-  private async drainPendingSpecs(): Promise<void> {
-    if (!this.tabStripEl || this.pendingSpecs.length === 0) return;
-    const queued = this.pendingSpecs;
-    this.pendingSpecs = [];
-    for (const spec of queued) {
-      await this.addTab(spec);
-    }
   }
 
   private leafEl(): HTMLElement | null {
@@ -214,10 +186,6 @@ export class TerminalContainerView extends ItemView {
     return this.tabs.map((t) => t.id);
   }
 
-  getTabSpecs(): TerminalTabSpec[] {
-    return this.tabs.map((t) => ({ ...t.spec }));
-  }
-
   getActiveTabId(): string | null {
     return this.activeTabId;
   }
@@ -231,10 +199,7 @@ export class TerminalContainerView extends ItemView {
   }
 
   async addTab(spec: TerminalTabSpec): Promise<string> {
-    if (!this.tabStripEl || !this.contentAreaEl) {
-      this.pendingSpecs.push(spec);
-      return "";
-    }
+    if (!this.tabStripEl || !this.contentAreaEl) return "";
 
     this.tabCounter += 1;
     const id = `tab-${this.tabCounter}`;
@@ -253,8 +218,12 @@ export class TerminalContainerView extends ItemView {
     closeButtonEl.setAttr("role", "button");
 
     const paneEl = this.contentAreaEl.createDiv({ cls: "anvil-terminal-pane" });
-    paneEl.style.display = "none";
-
+    // Prototype ordering (verified in the Phase 2 spike): mount xterm BEFORE
+    // the pane is first made visible via switchTab so the shell's first
+    // prompt is drawn with the correct cols/rows. Mounting on a hidden pane
+    // yields degenerate dimensions; the subsequent fit() after switchTab
+    // would SIGWINCH the shell mid-startup and leave zsh flagging every
+    // prompt with PROMPT_EOL_MARK (%).
     const host = createXtermHost();
     host.mount(paneEl);
 
@@ -304,19 +273,10 @@ export class TerminalContainerView extends ItemView {
       void this.closeTab(id);
     });
 
-    this.switchTab(id);
-    this.persistState();
-
-    // Fire backend start without awaiting so `this.tabs.push` above is
-    // synchronously visible to callers. setState → drainPendingSpecs needs
-    // to complete within Obsidian's changeLayout() window, and changeLayout
-    // does not fully await our setState promise.
-    void this.startBackend(host, backend);
-
-    return id;
-  }
-
-  private async startBackend(host: XtermHost, backend: TerminalBackend): Promise<void> {
+    // Start the backend BEFORE revealing the tab. The shell's first prompt
+    // then arrives with the pane already sized correctly. Previously this
+    // fired asynchronously to satisfy AC8 (layout save/restore) — that AC
+    // was dropped; the prototype ordering is restored.
     try {
       await backend.start();
     } catch (err) {
@@ -324,6 +284,9 @@ export class TerminalContainerView extends ItemView {
         `\r\n\x1b[31m[failed to start terminal backend: ${(err as Error).message}]\x1b[0m\r\n`,
       );
     }
+
+    this.switchTab(id);
+    return id;
   }
 
   switchTab(id: string): void {
@@ -369,34 +332,13 @@ export class TerminalContainerView extends ItemView {
       if (fallback) this.switchTab(fallback.id);
     }
 
-    this.persistState();
-
     if (this.tabs.length === 0) {
       this.leaf.detach();
     }
   }
 
-  private persistState(): void {
-    // Surface state changes to Obsidian so layout save picks up new tabs.
-    const workspace = this.app.workspace as unknown as {
-      requestSaveLayout?: () => void;
-    };
-    workspace.requestSaveLayout?.();
-  }
-
   private removeTabEventHandlers(tab: TerminalTab): void {
     tab.paneEl.removeEventListener("keydown", tab.keydownHandler);
-  }
-
-  private coerceSpec(raw: unknown): TerminalTabSpec | null {
-    if (!raw || typeof raw !== "object") return null;
-    const s = raw as Record<string, unknown>;
-    if (typeof s.shell !== "string" || s.shell.length === 0) return null;
-    const shellArgs = Array.isArray(s.shellArgs)
-      ? (s.shellArgs.filter((v) => typeof v === "string") as string[])
-      : undefined;
-    const cwd = typeof s.cwd === "string" ? s.cwd : undefined;
-    return { shell: s.shell, shellArgs, cwd };
   }
 
   private resolveDefaultSpec(): TerminalTabSpec {

@@ -1,24 +1,24 @@
 # Phase 3 — Workspace Container Implementation: Completion Report
 
 **Mode:** Code Tests (Mode B)
-**Cycles:** 2 (initial pass green on 14/17; one tight loop on AC6/AC8/AC15 wording)
-**Status:** GREEN — all 17 Phase 3 e2e tests pass, full suite (unit + e2e) green.
+**Cycles:** 2 (initial pass green on 14/17; one tight loop on AC6/AC8/AC15 wording). AC8 subsequently **rescoped** post-merge — see "Post-merge rescope" below.
+**Status:** GREEN — 16/16 Phase 3 e2e tests pass (AC8 dropped, was 17), full suite (unit + e2e) green.
 
 Parent spec: [phase-3-workspace-container-spec.md](phase-3-workspace-container-spec.md).
 
 ## Deliverables
 
 ### Production code
-- `src/view/TerminalContainerView.ts` — new ItemView hosting N xterm tabs in one leaf. `view.navigation = false`; plugin-drawn chrome (tab strip with per-tab close, reserved bottom buffer); `addTab` / `switchTab` / `closeTab` / `getTabIds` / `getTabSpecs` / `getActiveTabId` / `getActiveHost` / `getActiveBackend`; `getState` / `setState` round-trip tabs; ResizeObserver on `leaf.containerEl` persists container height across close/reopen.
+- `src/view/TerminalContainerView.ts` — new ItemView hosting N xterm tabs in one leaf. `view.navigation = false`; plugin-drawn chrome (tab strip with per-tab close, reserved bottom buffer); `addTab` / `switchTab` / `closeTab` / `getTabIds` / `getActiveTabId` / `getActiveHost` / `getActiveBackend`; ResizeObserver on `leaf.containerEl` persists container height across close/reopen. On view reconstruction (restart, workspace-plugin, popout), `onOpen` creates one blank tab unless the plugin signalled via `isExpectingManualTab()` that it will supply the spec itself.
 - `src/dock/wrap-and-dock.ts` — FI-012 wrap-and-dock module. `createWrapAndDock({ workspace, rootSplit })` returns `openWithWrap()` / `closeWithUnwrap(handle)`. Feature-detects `createLeafBySplit` + `insertChild` + `removeChild` + `setDirection`; absence falls through to today's flat-dock behaviour.
 - `src/main.ts` — registers only the container view; `openTerminalWithSpec` + `openDefaultTerminal` target `container.addTab(spec)`. `getOrCreateContainerView` orchestrates `openWithWrap` + `allocateContainerLeaf` (`createLeafInParent` with `getLeaf("split", "horizontal")` fallback emitting `window.__anvilFallbackWarned = true` + `console.warn`). `reconcileWrap` listens for `layout-change` and calls `closeWithUnwrap` when the container leaf disappears.
 - `src/styles.css` — new rules for `.anvil-terminal-container-view` / `-tabstrip` / `-tab` / `-tab-close` / `-content` / `-pane` / `-bottom-buffer` using Obsidian theme tokens only. Legacy `.obsidian-terminal-view` rules removed.
 
 ### Tests
 - `tests/e2e/container-view.e2e.ts` (AC1-7, AC10, AC16) — 9 tests.
-- `tests/e2e/container-persistence.e2e.ts` (AC8) — 1 test.
 - `tests/e2e/fi-012-wrap-and-dock.e2e.ts` (AC15) — 2 tests.
 - `tests/e2e/tab-isolation.e2e.ts` (AC9, R8a–R8e) — 5 tests.
+- `tests/e2e/container-persistence.e2e.ts` deleted post-merge — see "Post-merge rescope".
 - Existing specs (`pty-backend.e2e.ts`, `picker.e2e.ts`, `plugin.e2e.ts`, `keyboard-passthrough.e2e.ts`) retargeted to the container view's DOM + added `getActiveHost` / `getActiveBackend` accessor.
 
 ### Deletions
@@ -38,7 +38,7 @@ Per the spec's User Testing section — all manual items to run against the dev 
 3. **Background work survives switch** — `yes` (or `ping localhost`) in tab 2, switch to tab 1, wait, switch back. Output has continued, scrollback intact.
 4. **Close one tab** — click X on tab 1. Only tab 1 closes.
 5. **Close last tab / container** — close final tab. Container detaches. `Cmd-P → Open terminal` → container reappears.
-6. **Layout persistence** — open 2 tabs. `Ctrl-R` / quit-restart. Both tabs restore in order with their shells.
+6. **Restart behaviour** — open 2 tabs, quit and reopen Obsidian. Container returns with one blank terminal (not two, not the prior shells). Separately: close the container before quitting → container should not be present on reopen.
 7. **Isolation against notes** — with terminal open, open a note via Cmd-click wikilink, quick switcher, Cmd-Shift-click split. Container is never replaced, never sibling-into'd.
 7a. **No-overlap across themes (AC7 manual leg)** — see Required Manual Verification below.
 7b. **FI-012 wrap-and-dock feel** — open two notes side-by-side, open the terminal. Notes stay side-by-side, terminal docks full-width below. Close the terminal — layout restores.
@@ -59,7 +59,7 @@ These acceptance criteria cannot be fully covered by automation — ship gates r
 
 - **`window.__anvilFallbackWarned` is production-visible by design.** The flag went into production (not test-only) so a future settings surface can show "running in degraded mode" without re-parsing console logs. If the fallback path is ever deleted, delete the flag with it.
 
-- **`addTab` intentionally does NOT await `backend.start()`.** Awaiting starved AC8 because `workspace.changeLayout()` doesn't fully await `setState` → `drainPendingSpecs`. The backend start runs via `void this.startBackend(host, backend)`. If a future feature needs to block UI until the shell is live (e.g., a splash), add a `ready` promise per tab rather than re-awaiting inside `addTab`.
+- **`addTab` awaits `backend.start()` before revealing the tab.** This mirrors the Phase 2 prototype's ordering and is load-bearing: mounting the xterm on a hidden pane yields degenerate cols/rows, and a late SIGWINCH during shell startup leaves zsh flagging every subsequent prompt with `%` (PROMPT_EOL_MARK). An earlier fire-and-forget variant was tried to satisfy AC8 (layout save/restore) — AC8 was subsequently dropped; see "Post-merge rescope".
 
 - **Test contract drift caught during GREEN:** the Session 1 RED stubs assumed `createLeafInParent` produces a tabs-wrapper around the container leaf (AC15 forward), but the spike findings document the shape as a *direct* `container-leaf` child of rootSplit. The production assertion was relaxed to "container leaf is under rootSplit" via `getLeavesOfType` + parent-chain walk. Future FI work that changes the leaf-allocation path should update this assertion too, not the other way around.
 
@@ -74,6 +74,24 @@ These acceptance criteria cannot be fully covered by automation — ship gates r
 - `beeb192` — PR1 additive: container view + wrap-and-dock + main.ts retarget.
 - `19794c9` — PR2 subtractive: delete legacy view + bottom-dock + stale e2e + doc hedges.
 - `0c0f16d` — final: delete fi-012 spike artifacts (AC12).
+- (post-merge) — AC8 rescope: drop tab-spec persistence; see below.
+
+## Post-merge rescope: AC8 dropped
+
+During dogfooding after the spike artifacts landed, a zsh regression surfaced — `PROMPT_EOL_MARK` (the reverse-video `%`) was showing before every prompt, not just the first. Root cause was the fire-and-forget `backend.start()` inside `addTab`: the shell's initial SIGWINCH landed mid-startup and the PTY's line-mode ended up such that bare `\n` didn't return the cursor to column 0. The prototype didn't have this bug because it awaited `backend.start()` before revealing the tab.
+
+The fire-and-forget ordering existed *only* to satisfy AC8 — `workspace.changeLayout()` doesn't fully await our `setState → drainPendingSpecs` chain, so awaiting backend starts during restore would drop tabs from the round-trip.
+
+Decision: **drop AC8 entirely.** Tab-state persistence across restart is a feature VS Code doesn't provide and the user doesn't want. Additionally, our PTY architecture (renderer-bound `pty-server` child + in-window websocket) can't meaningfully preserve shell sessions across any view-reconstruction boundary (restart, popout, workspace-plugin layout switch), so persistence was buying partial fidelity in only the restart case.
+
+Replacement: on view reconstruction, `onOpen` creates **one blank terminal** by default. Plugin signals "I'm supplying the spec" via `isExpectingManualTab()` to suppress this on manual opens. `addTab` returns to the prototype's ordering (mount → await `backend.start()` → switchTab) — the `%` regression is gone.
+
+What was removed:
+- `TerminalContainerView`: `setState` (tab-reading path), `getState` (tab-writing path), `getTabSpecs`, `pendingSpecs`, `drainPendingSpecs`, `coerceSpec`, `persistState`, `ensureChrome` (merged back into `onOpen`'s `buildChrome`)
+- `tests/e2e/container-persistence.e2e.ts` (the only AC8 test)
+- `src/main.ts`: gained `expectingManualTab` flag + `isExpectingManualTab()` accessor around `setViewState`
+
+Documents updated: this report, the phase-3 spec's AC8 + User Testing item 6 + state-serialization section.
 
 ## Acceptance criteria coverage
 
@@ -87,7 +105,7 @@ These acceptance criteria cannot be fully covered by automation — ship gates r
 | AC6 — height persists across close/reopen | GREEN | container-view.e2e.ts |
 | AC7 — editor overlay does not intersect xterm viewport (automated leg) | GREEN | container-view.e2e.ts |
 | AC7 — multi-theme sweep | MANUAL | Required Manual Verification #1 |
-| AC8 — layout save/restore round-trips N tabs | GREEN | container-persistence.e2e.ts |
+| AC8 — (rescoped post-merge, was layout save/restore) | DROPPED | see "Post-merge rescope" |
 | AC9 — all 5 R8 probes green | GREEN | tab-isolation.e2e.ts |
 | AC10 — feature-detect fallback + single warning | GREEN | container-view.e2e.ts |
 | AC11 — `npm run build && npm run test` green | GREEN | CI-shaped local run |

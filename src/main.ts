@@ -45,6 +45,7 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   private wrapHandle: WrapHandle | null = null;
   private wrapAndDock: WrapAndDock | null = null;
   private lastContainerHeight: number | null = null;
+  private expectingManualTab = false;
 
   getLastContainerHeight(): number | null {
     return this.lastContainerHeight;
@@ -52,6 +53,10 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
 
   setLastContainerHeight(height: number): void {
     if (height > 0) this.lastContainerHeight = height;
+  }
+
+  isExpectingManualTab(): boolean {
+    return this.expectingManualTab;
   }
 
   async onload(): Promise<void> {
@@ -182,10 +187,18 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
 
     const leaf = this.allocateContainerLeaf(workspace, rootSplit);
 
-    await leaf.setViewState({
-      type: TERMINAL_CONTAINER_VIEW_TYPE,
-      active: true,
-    });
+    // Flag the view's onOpen that the plugin will supply the first tab's
+    // spec itself via addTab(). Without this, onOpen creates a blank default
+    // tab (the restore path), and we'd end up with two tabs on every open.
+    this.expectingManualTab = true;
+    try {
+      await leaf.setViewState({
+        type: TERMINAL_CONTAINER_VIEW_TYPE,
+        active: true,
+      });
+    } finally {
+      this.expectingManualTab = false;
+    }
 
     return leaf.view as TerminalContainerView;
   }
