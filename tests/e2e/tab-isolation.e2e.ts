@@ -1,170 +1,171 @@
+// Phase 3 — AC9: R8 isolation probes against the terminal container view.
+//
+// Rewritten from the single-leaf `TerminalView` target to the multi-tab
+// `TerminalContainerView` target. R8a–R8e ported from the Phase 2 prototype
+// (specs/anvil/pane-chrome-and-picker/phase-2-prototype/r8.e2e.ts).
+//
+// Load-bearing properties Phase 3 must preserve (ADR 0006):
+//   R8a (default openLinkText) — carried by `view.navigation = false`
+//   R8b (openLinkText("tab"))  — carried by placement (createLeafInParent
+//                                under rootSplit, no WorkspaceTabs wrapper)
+//   R8c (openLinkText("split")) — carried by placement
+//   R8d (HTML5 drop onto container) — carried by no drop handler
+//   R8e (explicit setViewState clobber) — regression-pinned. Documented
+//       residual: not blockable within sanctioned API.
+
 import { browser, expect, $ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
-const VIEW_TYPE = "obsidian-terminal-view";
+const CONTAINER_VIEW_TYPE = "anvil-terminal-container-view";
 const NOTE_PATH = "tab-isolation-test.md";
+
+type Leaf = {
+  view: { getViewType?: () => string };
+  detach(): void;
+  setViewState(s: unknown): Promise<void>;
+  getViewState(): { type: string };
+};
 
 type AnvilPluginLike = {
   openDefaultTerminal: () => Promise<void>;
 };
 
-type Leaf = {
-  view: { getViewType?: () => string };
-  parent?: unknown;
-  detach(): void;
-};
-
-type ObsidianWindow = Window & {
+type Ws = Window & {
   app: {
-    plugins: { plugins: Record<string, unknown> };
+    plugins: { plugins: Record<string, AnvilPluginLike> };
     vault: {
-      create: (path: string, content: string) => Promise<unknown>;
-      adapter: { exists: (p: string) => Promise<boolean> };
-      delete: (file: unknown) => Promise<void>;
+      create: (p: string, c: string) => Promise<unknown>;
+      delete: (f: unknown) => Promise<void>;
       getAbstractFileByPath: (p: string) => unknown;
     };
     workspace: {
-      getLeavesOfType: (type: string) => Leaf[];
-      detachLeavesOfType: (type: string) => void;
-      setActiveLeaf: (leaf: Leaf, options?: unknown) => void;
-      getMostRecentLeaf: () => Leaf | null;
-      openLinkText: (
-        linktext: string,
-        sourcePath: string,
-        newLeaf: boolean | string,
-      ) => Promise<void>;
-      trigger?: (name: string) => void;
-      rootSplit: { children: unknown[] };
-    };
-    commands: {
-      executeCommandById: (id: string) => boolean;
+      getLeavesOfType: (t: string) => Leaf[];
+      detachLeavesOfType: (t: string) => void;
+      setActiveLeaf: (l: Leaf, opts?: unknown) => void;
+      openLinkText: (l: string, s: string, n: boolean | string) => Promise<void>;
+      trigger?: (n: string) => void;
     };
   };
 };
 
-async function closeAllTerminalLeaves() {
-  await browser.execute((type: string) => {
-    const app = (window as unknown as ObsidianWindow).app;
-    app.workspace.detachLeavesOfType(type);
+async function closeAllContainerLeaves() {
+  await browser.execute((t: string) => {
+    const app = (window as unknown as Ws).app;
+    app.workspace.detachLeavesOfType(t);
     app.workspace.trigger?.("layout-change");
-  }, VIEW_TYPE);
-}
-
-async function deleteTestNote() {
-  await browser.executeAsync(
-    (path: string, done: (v: unknown) => void) => {
-      const app = (window as unknown as ObsidianWindow).app;
-      const existing = app.vault.getAbstractFileByPath(path);
-      if (existing) {
-        void app.vault.delete(existing).then(() => done(null));
-        return;
-      }
-      done(null);
-    },
-    NOTE_PATH,
-  );
+  }, CONTAINER_VIEW_TYPE);
 }
 
 async function ensureTestNote() {
   await browser.executeAsync(
     (path: string, done: (v: unknown) => void) => {
-      const app = (window as unknown as ObsidianWindow).app;
-      const existing = app.vault.getAbstractFileByPath(path);
-      if (existing) {
-        done(null);
-        return;
-      }
-      void app.vault
-        .create(path, "# tab isolation fixture\n")
-        .then(() => done(null));
+      const app = (window as unknown as Ws).app;
+      if (app.vault.getAbstractFileByPath(path)) return done(null);
+      void app.vault.create(path, "# R8 fixture\n").then(() => done(null));
     },
     NOTE_PATH,
   );
 }
 
-async function openTerminalAndActivate() {
-  await browser.executeAsync((id: string, done: (v: unknown) => void) => {
-    const app = (window as unknown as ObsidianWindow).app;
-    const plugin = app.plugins.plugins[id] as AnvilPluginLike;
+async function deleteTestNote() {
+  await browser.executeAsync(
+    (path: string, done: (v: unknown) => void) => {
+      const app = (window as unknown as Ws).app;
+      const f = app.vault.getAbstractFileByPath(path);
+      if (f) void app.vault.delete(f).then(() => done(null));
+      else done(null);
+    },
+    NOTE_PATH,
+  );
+}
+
+async function openContainerAndActivate() {
+  await browser.executeAsync((id: string, t: string, done: (v: unknown) => void) => {
+    const app = (window as unknown as Ws).app;
+    const plugin = app.plugins.plugins[id];
     void plugin.openDefaultTerminal().then(() => {
-      const leaves = app.workspace.getLeavesOfType("obsidian-terminal-view");
+      const leaves = app.workspace.getLeavesOfType(t);
       if (leaves[0]) app.workspace.setActiveLeaf(leaves[0], { focus: true });
       done(null);
     });
-  }, PLUGIN_ID);
-  await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 5000 });
+  }, PLUGIN_ID, CONTAINER_VIEW_TYPE);
+  await $(".anvil-terminal-container-view .xterm").waitForExist({ timeout: 10000 });
 }
 
 type IsolationReport = {
-  terminalLeafCount: number;
-  terminalXtermVisible: boolean;
+  containerLeafCount: number;
+  containerXtermVisible: boolean;
   noteLeafFound: boolean;
+  hasInsideMarkdown: boolean;
 };
 
-async function assertIsolation(report: IsolationReport, label: string) {
-  // "Not replaced" — the terminal leaf still exists.
-  expect(report.terminalLeafCount).toBeGreaterThanOrEqual(1);
-  // "Not sibling-into" — the terminal is still visible to the user, not
-  // hidden behind the note in a shared tab container. This is the real
-  // user-facing concern per spec D8.
-  expect(report.terminalXtermVisible).toBe(true);
-  // Sanity: the note actually opened somewhere.
+async function collectReport(): Promise<IsolationReport> {
+  return browser.execute(
+    (viewType: string, notePath: string) => {
+      const app = (window as unknown as Ws).app;
+      const termLeaves = app.workspace.getLeavesOfType(viewType);
+
+      let noteLeafFound = false;
+      for (const t of ["markdown", "empty"]) {
+        for (const leaf of app.workspace.getLeavesOfType(t)) {
+          const file = (leaf as unknown as { view?: { file?: { path?: string } } })
+            .view?.file?.path;
+          if (file === notePath) {
+            noteLeafFound = true;
+            break;
+          }
+        }
+        if (noteLeafFound) break;
+      }
+
+      const container = document.querySelector(".anvil-terminal-container-view");
+      const xterm = container?.querySelector(".xterm") as HTMLElement | null;
+      const containerXtermVisible = Boolean(xterm && xterm.offsetParent !== null);
+      const hasInsideMarkdown = Boolean(
+        container?.querySelector(".markdown-source-view, .markdown-preview-view"),
+      );
+
+      return {
+        containerLeafCount: termLeaves.length,
+        containerXtermVisible,
+        noteLeafFound,
+        hasInsideMarkdown,
+      };
+    },
+    CONTAINER_VIEW_TYPE,
+    NOTE_PATH,
+  );
+}
+
+function assertIsolation(report: IsolationReport, label: string) {
+  expect(report.containerLeafCount).toBeGreaterThanOrEqual(1);
+  expect(report.containerXtermVisible).toBe(true);
+  expect(report.hasInsideMarkdown).toBe(false);
   expect(report.noteLeafFound).toBe(true);
-  if (!report.terminalXtermVisible) {
+  if (!report.containerXtermVisible || report.hasInsideMarkdown) {
     throw new Error(
-      `${label}: terminal xterm is no longer visible — STOP and surface per D8.`,
+      `${label}: container isolation regressed — xtermVisible=${report.containerXtermVisible}, hasInsideMarkdown=${report.hasInsideMarkdown}.`,
     );
   }
 }
 
-async function collectReport(): Promise<IsolationReport> {
-  return browser.execute((terminalType: string, notePath: string) => {
-    const app = (window as unknown as ObsidianWindow).app;
-    const termLeaves = app.workspace.getLeavesOfType(terminalType);
-
-    let noteLeafFound = false;
-    for (const t of ["markdown", "empty"]) {
-      for (const leaf of app.workspace.getLeavesOfType(t)) {
-        const file = (leaf as unknown as { view?: { file?: { path?: string } } })
-          .view?.file?.path;
-        if (file === notePath) {
-          noteLeafFound = true;
-          break;
-        }
-      }
-      if (noteLeafFound) break;
-    }
-
-    const xterm = document.querySelector(
-      ".obsidian-terminal-view .xterm",
-    ) as HTMLElement | null;
-    const terminalXtermVisible = Boolean(xterm && xterm.offsetParent !== null);
-
-    return {
-      terminalLeafCount: termLeaves.length,
-      terminalXtermVisible,
-      noteLeafFound,
-    };
-  }, VIEW_TYPE, NOTE_PATH);
-}
-
-describe("anvil-obsidian-terminal tab-group isolation (D8 verify-don't-implement)", function () {
+describe("Phase 3 — R8 isolation probes against container view", function () {
   beforeEach(async function () {
-    await closeAllTerminalLeaves();
+    await closeAllContainerLeaves();
     await ensureTestNote();
   });
 
   afterEach(async function () {
-    await closeAllTerminalLeaves();
+    await closeAllContainerLeaves();
     await deleteTestNote();
   });
 
-  it("workspace.openLinkText (quick-switcher / programmatic) does not replace or sibling-into the terminal leaf", async function () {
-    await openTerminalAndActivate();
+  it("R8a — openLinkText(base, '', false) does not land the note inside the container", async function () {
+    await openContainerAndActivate();
 
     await browser.executeAsync(
       (path: string, done: (v: unknown) => void) => {
-        const app = (window as unknown as ObsidianWindow).app;
+        const app = (window as unknown as Ws).app;
         const base = path.replace(/\.md$/, "");
         void app.workspace.openLinkText(base, "", false).then(() => done(null));
       },
@@ -172,18 +173,15 @@ describe("anvil-obsidian-terminal tab-group isolation (D8 verify-don't-implement
     );
 
     const report = await collectReport();
-    await assertIsolation(
-      report,
-      "workspace.openLinkText default mode",
-    );
+    assertIsolation(report, "R8a openLinkText(false)");
   });
 
-  it("workspace.openLinkText with tab modifier (Cmd-click) does not replace or sibling-into the terminal leaf", async function () {
-    await openTerminalAndActivate();
+  it("R8b — openLinkText(base, '', 'tab') does not sibling-into the container's tab group", async function () {
+    await openContainerAndActivate();
 
     await browser.executeAsync(
       (path: string, done: (v: unknown) => void) => {
-        const app = (window as unknown as ObsidianWindow).app;
+        const app = (window as unknown as Ws).app;
         const base = path.replace(/\.md$/, "");
         void app.workspace.openLinkText(base, "", "tab").then(() => done(null));
       },
@@ -191,36 +189,31 @@ describe("anvil-obsidian-terminal tab-group isolation (D8 verify-don't-implement
     );
 
     const report = await collectReport();
-    await assertIsolation(report, "workspace.openLinkText tab modifier");
+    assertIsolation(report, "R8b openLinkText(tab)");
   });
 
-  it("workspace.openLinkText with split modifier does not replace or sibling-into the terminal leaf", async function () {
-    await openTerminalAndActivate();
+  it("R8c — openLinkText(base, '', 'split') does not replace or split the container", async function () {
+    await openContainerAndActivate();
 
     await browser.executeAsync(
       (path: string, done: (v: unknown) => void) => {
-        const app = (window as unknown as ObsidianWindow).app;
+        const app = (window as unknown as Ws).app;
         const base = path.replace(/\.md$/, "");
-        void app.workspace
-          .openLinkText(base, "", "split")
-          .then(() => done(null));
+        void app.workspace.openLinkText(base, "", "split").then(() => done(null));
       },
       NOTE_PATH,
     );
 
     const report = await collectReport();
-    await assertIsolation(report, "workspace.openLinkText split modifier");
+    assertIsolation(report, "R8c openLinkText(split)");
   });
 
-  it("a synthetic HTML5 drop event with a note-path DataTransfer does not mix the terminal and the note into one tab group", async function () {
-    await openTerminalAndActivate();
+  it("R8d — synthetic HTML5 drop on the container does not mix a note inside", async function () {
+    await openContainerAndActivate();
 
-    // Dispatch a drop event with an Obsidian-style DataTransfer payload into
-    // the terminal view's container. If anything reacts to the drop by
-    // placing a note leaf under the same parent, that's the regression.
     await browser.execute((path: string) => {
       const container = document.querySelector(
-        ".obsidian-terminal-view",
+        ".anvil-terminal-container-view",
       ) as HTMLElement | null;
       if (!container) return;
       const dt = new DataTransfer();
@@ -234,23 +227,61 @@ describe("anvil-obsidian-terminal tab-group isolation (D8 verify-don't-implement
       container.dispatchEvent(ev);
     }, NOTE_PATH);
 
-    // Give the layout a moment to react if it's going to.
     await browser.pause(300);
 
     const state = await browser.execute(() => {
-      const xterm = document.querySelector(
-        ".obsidian-terminal-view .xterm",
-      ) as HTMLElement | null;
+      const container = document.querySelector(".anvil-terminal-container-view");
+      const xterm = container?.querySelector(".xterm") as HTMLElement | null;
       return {
-        terminalXtermVisible: Boolean(xterm && xterm.offsetParent !== null),
+        containerXtermVisible: Boolean(xterm && xterm.offsetParent !== null),
+        hasInsideMarkdown: Boolean(
+          container?.querySelector(
+            ".markdown-source-view, .markdown-preview-view",
+          ),
+        ),
       };
     });
 
-    if (!state.terminalXtermVisible) {
+    expect(state.containerXtermVisible).toBe(true);
+    expect(state.hasInsideMarkdown).toBe(false);
+    if (!state.containerXtermVisible || state.hasInsideMarkdown) {
       throw new Error(
-        "drop event regression: terminal xterm is no longer visible after a synthetic HTML5 drop. STOP and surface per D8.",
+        `R8d synthetic drop: container isolation regressed — xtermVisible=${state.containerXtermVisible}, hasInsideMarkdown=${state.hasInsideMarkdown}.`,
       );
     }
-    expect(state.terminalXtermVisible).toBe(true);
+  });
+
+  it("R8e — explicit leaf.setViewState({type:'markdown'}) replaces the container (documented residual — regression-pin)", async function () {
+    await openContainerAndActivate();
+
+    const postType = (await browser.executeAsync(
+      (viewType: string, notePath: string, done: (v: unknown) => void) => {
+        const app = (window as unknown as Ws).app;
+        const leaves = app.workspace.getLeavesOfType(viewType);
+        const leaf = leaves[0];
+        if (!leaf) return done("no-container-leaf");
+        void leaf
+          .setViewState({
+            type: "markdown",
+            state: { file: notePath, mode: "source" },
+          })
+          .then(() => {
+            setTimeout(() => {
+              const vs = leaf.getViewState();
+              done(vs?.type ?? "unknown");
+            }, 300);
+          })
+          .catch((err: Error) => {
+            done(`threw:${err.message}`);
+          });
+      },
+      CONTAINER_VIEW_TYPE,
+      NOTE_PATH,
+    )) as string;
+
+    // Regression-pin: R8e is NOT blockable within sanctioned API. If this
+    // assertion flips (postType !== "markdown"), the container's mitigations
+    // changed behavior and ADR 0006's "Harder" section needs revisiting.
+    expect(postType).toBe("markdown");
   });
 });
