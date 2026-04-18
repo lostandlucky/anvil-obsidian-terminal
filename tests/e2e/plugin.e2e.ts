@@ -2,7 +2,7 @@ import { browser, expect, $ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
 const COMMAND_ID = `${PLUGIN_ID}:open-terminal`;
-const VIEW_TYPE = "obsidian-terminal-view";
+const VIEW_TYPE = "anvil-terminal-container-view";
 
 type AnvilPluginLike = {
   openDefaultTerminal: () => Promise<void>;
@@ -46,24 +46,24 @@ async function openTerminal() {
     const plugin = app.plugins.plugins[id] as AnvilPluginLike;
     void plugin.openDefaultTerminal().then(() => done(null));
   }, PLUGIN_ID);
-  await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 5000 });
+  await $(".anvil-terminal-container-view .xterm").waitForExist({ timeout: 5000 });
 }
 
 async function readTerminalText(): Promise<string> {
   return browser.execute(() => {
     const rows = document.querySelector(
-      ".obsidian-terminal-view .xterm-rows",
+      ".anvil-terminal-container-view .xterm-rows",
     );
     return rows ? (rows as HTMLElement).innerText : "";
   });
 }
 
 async function focusTerminal() {
-  const textarea = await $(".obsidian-terminal-view .xterm-helper-textarea");
+  const textarea = await $(".anvil-terminal-container-view .xterm-helper-textarea");
   await textarea.waitForExist({ timeout: 5000 });
   await browser.execute(() => {
     const ta = document.querySelector(
-      ".obsidian-terminal-view .xterm-helper-textarea",
+      ".anvil-terminal-container-view .xterm-helper-textarea",
     ) as HTMLTextAreaElement | null;
     ta?.focus();
   });
@@ -100,11 +100,11 @@ describe("anvil-obsidian-terminal", function () {
 
   it("executing the command mounts xterm in an ItemView", async function () {
     await openTerminal();
-    const exists = await $(".obsidian-terminal-view .xterm").isExisting();
+    const exists = await $(".anvil-terminal-container-view .xterm").isExisting();
     expect(exists).toBe(true);
 
     const hasScreen = await $(
-      ".obsidian-terminal-view .xterm-screen",
+      ".anvil-terminal-container-view .xterm-screen",
     ).isExisting();
     expect(hasScreen).toBe(true);
   });
@@ -139,7 +139,7 @@ describe("anvil-obsidian-terminal", function () {
         if (ev.ctrlKey && ev.key === "c") documentSawCtrlC = true;
       };
       const ta = document.querySelector(
-        ".obsidian-terminal-view .xterm-helper-textarea",
+        ".anvil-terminal-container-view .xterm-helper-textarea",
       ) as HTMLElement | null;
       const targetProbe = (ev: KeyboardEvent) => {
         if (ev.ctrlKey && ev.key === "c") targetSawCtrlC = true;

@@ -222,6 +222,14 @@ export class TerminalContainerView extends ItemView {
     return this.activeTabId;
   }
 
+  getActiveHost(): XtermHost | null {
+    return this.tabs.find((t) => t.id === this.activeTabId)?.host ?? null;
+  }
+
+  getActiveBackend(): TerminalBackend | null {
+    return this.tabs.find((t) => t.id === this.activeTabId)?.backend ?? null;
+  }
+
   async addTab(spec: TerminalTabSpec): Promise<string> {
     if (!this.tabStripEl || !this.contentAreaEl) {
       this.pendingSpecs.push(spec);

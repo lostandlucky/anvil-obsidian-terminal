@@ -1,25 +1,5 @@
 @import "@xterm/xterm/css/xterm.css";
 
-/* Legacy single-terminal view — retained during PR1 cutover window. */
-.obsidian-terminal-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  padding: 0;
-  background: var(--background-primary);
-}
-
-.obsidian-terminal-view .xterm {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 8px;
-}
-
-.obsidian-terminal-view .xterm-viewport {
-  background-color: transparent !important;
-}
-
 /* Multi-terminal container view (ADR 0006 Rank 3).
    Layout: tabstrip / content / bottom-buffer stacked vertically.
    Per-tab panes are absolutely positioned inside .anvil-terminal-content

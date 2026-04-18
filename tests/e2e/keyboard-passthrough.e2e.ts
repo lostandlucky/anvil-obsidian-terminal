@@ -1,7 +1,7 @@
 import { browser, expect, $ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
-const VIEW_TYPE = "obsidian-terminal-view";
+const VIEW_TYPE = "anvil-terminal-container-view";
 
 type AnvilPluginLike = {
   openDefaultTerminal: () => Promise<void>;
@@ -41,16 +41,16 @@ async function openTerminal() {
     const plugin = app.plugins.plugins[id] as AnvilPluginLike;
     void plugin.openDefaultTerminal().then(() => done(null));
   }, PLUGIN_ID);
-  await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 10000 });
+  await $(".anvil-terminal-container-view .xterm").waitForExist({ timeout: 10000 });
 }
 
 async function focusTerminal() {
-  await $(".obsidian-terminal-view .xterm-helper-textarea").waitForExist({
+  await $(".anvil-terminal-container-view .xterm-helper-textarea").waitForExist({
     timeout: 5000,
   });
   await browser.execute(() => {
     const ta = document.querySelector(
-      ".obsidian-terminal-view .xterm-helper-textarea",
+      ".anvil-terminal-container-view .xterm-helper-textarea",
     ) as HTMLTextAreaElement | null;
     ta?.focus();
   });
@@ -59,7 +59,7 @@ async function focusTerminal() {
 async function readTerminalText(): Promise<string> {
   return browser.execute(() => {
     const rows = document.querySelector(
-      ".obsidian-terminal-view .xterm-rows",
+      ".anvil-terminal-container-view .xterm-rows",
     );
     return rows ? (rows as HTMLElement).innerText : "";
   });

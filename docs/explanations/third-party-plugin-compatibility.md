@@ -19,8 +19,7 @@ Plugins do this for their own reasons, usually routing preferences: *every note 
 Anvil does what Obsidian's public API allows to avoid being picked:
 
 - Places the terminal leaf directly under `rootSplit`, not inside a `WorkspaceTabs` wrapper. Prevents `openLinkText("tab")` from landing a note adjacent to the terminal.
-- Signals `View.navigation = false` (on the multi-terminal container view, once that ships) so Obsidian's built-in leaf-picker skips the terminal when routing notes.
-- Feature-detects `WorkspaceLeaf.setPinned(true)` (on the multi-terminal container view, once that ships) as belt-and-suspenders against the built-in picker.
+- Signals `View.navigation = false` on the container view so Obsidian's built-in leaf-picker skips the terminal when routing notes.
 
 None of those help against a plugin that calls `setViewState` directly. That call bypasses the picker. The only defense would be monkey-patching `WorkspaceLeaf.prototype.setViewState` globally to refuse overrides on Anvil's leaves — which Anvil chooses not to do. Globally patching an Obsidian internal in every user's workspace to protect against a narrow set of third-party interactions is a worse tradeoff than documenting the limit.
 
@@ -40,7 +39,7 @@ This is not exhaustive. Any plugin that calls `setViewState` on leaves it doesn'
 ## What to do when the terminal disappears
 
 1. **Reopen it.** `Cmd-P → Open terminal` creates a new leaf with a new shell. The old PTY is gone; there is no recovery of its state.
-2. **If it keeps happening**, disable community plugins one at a time until the clobber stops. Report the interaction to the offending plugin — Anvil's view type is `obsidian-terminal-view` today (and will be `anvil-terminal-container-view` once the multi-terminal container ships). Plugins that do leaf routing should exclude Anvil's view types from their heuristics.
+2. **If it keeps happening**, disable community plugins one at a time until the clobber stops. Report the interaction to the offending plugin — Anvil's view type is `anvil-terminal-container-view`. Plugins that do leaf routing should exclude this view type from their heuristics.
 3. **If you need reliable terminal persistence across clobbers**, use `tmux`. A detached tmux session survives as long as its server does. Anvil can attach to an existing session — if the leaf gets replaced, reopen the terminal and reattach.
 
 ## Why Anvil doesn't fight this harder

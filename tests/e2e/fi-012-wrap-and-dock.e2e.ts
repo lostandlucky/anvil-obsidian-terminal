@@ -79,7 +79,7 @@ async function deleteNotes() {
 async function resetWorkspace() {
   await browser.executeAsync((viewType: string, done: (v: unknown) => void) => {
     const app = (window as unknown as Ws).app;
-    for (const t of ["markdown", "empty", viewType, "obsidian-terminal-view"]) {
+    for (const t of ["markdown", "empty", viewType]) {
       try { app.workspace.detachLeavesOfType(t); } catch { /* */ }
     }
     setTimeout(() => done(null), 100);

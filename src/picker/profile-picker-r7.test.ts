@@ -7,7 +7,10 @@ import * as path from "node:path";
  *
  * The profile picker overrides SuggestModal.updateSuggestions, an
  * undocumented Obsidian internal. Per R7, the override MUST follow the
- * feature-detect + try/catch pattern from src/dock/bottom-dock.ts:47–63.
+ * feature-detect + try/catch pattern used across the plugin for
+ * undocumented APIs (see src/dock/wrap-and-dock.ts:canWrap + guarded
+ * invocations, or src/view/TerminalContainerView.ts's leaf.setDimension
+ * fallback).
  *
  * Runtime test of the throw path is awkward (the obsidian module isn't
  * resolvable from browser.execute in the e2e harness, and Obsidian doesn't

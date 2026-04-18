@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import { Plugin, WorkspaceLeaf } from "obsidian";
-import { TerminalView, TERMINAL_VIEW_TYPE } from "./view/TerminalView";
 import {
   TerminalContainerView,
   TERMINAL_CONTAINER_VIEW_TYPE,
@@ -58,13 +57,6 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
 
-    // Register both the legacy single-leaf view and the new multi-tab
-    // container. Legacy view stays registered during PR1 cutover so existing
-    // workspaces that still reference it don't break; PR2 deletes it.
-    this.registerView(
-      TERMINAL_VIEW_TYPE,
-      (leaf) => new TerminalView(leaf, this),
-    );
     this.registerView(
       TERMINAL_CONTAINER_VIEW_TYPE,
       (leaf) => new TerminalContainerView(leaf, this),
@@ -87,7 +79,6 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
 
   async onunload(): Promise<void> {
     this.app.workspace.detachLeavesOfType(TERMINAL_CONTAINER_VIEW_TYPE);
-    this.app.workspace.detachLeavesOfType(TERMINAL_VIEW_TYPE);
     this.wrapHandle = null;
     this.wrapAndDock = null;
   }

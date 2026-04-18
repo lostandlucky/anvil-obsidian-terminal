@@ -2,7 +2,7 @@ import { browser, expect, $, $$ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
 const COMMAND_ID = `${PLUGIN_ID}:open-terminal`;
-const VIEW_TYPE = "obsidian-terminal-view";
+const VIEW_TYPE = "anvil-terminal-container-view";
 
 type ObsidianWindow = Window & {
   app: {
@@ -59,7 +59,7 @@ describe("anvil-obsidian-terminal profile picker", function () {
     await modal.waitForExist({ timeout: 3000 });
 
     // No terminal view should have been mounted by opening the picker alone.
-    const terminalMounted = await $(".obsidian-terminal-view .xterm").isExisting();
+    const terminalMounted = await $(".anvil-terminal-container-view .xterm").isExisting();
     expect(terminalMounted).toBe(false);
   });
 
@@ -189,17 +189,17 @@ describe("anvil-obsidian-terminal profile picker", function () {
         .then(() => done(null));
     }, PLUGIN_ID);
 
-    await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 5000 });
+    await $(".anvil-terminal-container-view .xterm").waitForExist({ timeout: 5000 });
 
-    // Inspect the TerminalView's PtyBackend options. The backend field is
-    // private on the view class but accessible at runtime.
+    // Inspect the active tab's PtyBackend options. opts is private on the
+    // backend class but accessible at runtime.
     const backendOpts = await browser.execute((viewType: string) => {
       const app = (window as unknown as ObsidianWindow).app;
       const leaves = app.workspace.getLeavesOfType(viewType);
       const view = leaves[0]?.view as unknown as {
-        backend?: { opts?: { shell?: string; shellArgs?: string[] } };
+        getActiveBackend?: () => { opts?: { shell?: string; shellArgs?: string[] } } | null;
       };
-      return view?.backend?.opts ?? null;
+      return view?.getActiveBackend?.()?.opts ?? null;
     }, VIEW_TYPE);
 
     expect(backendOpts).not.toBeNull();
@@ -237,7 +237,7 @@ describe("anvil-obsidian-terminal profile picker", function () {
       { timeout: 2000, timeoutMsg: "picker modal did not dismiss on Escape" },
     );
 
-    const terminalMounted = await $(".obsidian-terminal-view .xterm").isExisting();
+    const terminalMounted = await $(".anvil-terminal-container-view .xterm").isExisting();
     expect(terminalMounted).toBe(false);
   });
 
@@ -402,7 +402,7 @@ describe("anvil-obsidian-terminal profile picker", function () {
     expect(stillOpen).toBe(true);
 
     // No terminal mounted
-    const terminalMounted = await $(".obsidian-terminal-view .xterm").isExisting();
+    const terminalMounted = await $(".anvil-terminal-container-view .xterm").isExisting();
     expect(terminalMounted).toBe(false);
 
     // Selected row unchanged

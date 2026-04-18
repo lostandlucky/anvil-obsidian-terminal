@@ -1,7 +1,7 @@
 import { browser, expect, $ } from "@wdio/globals";
 
 const PLUGIN_ID = "anvil-obsidian-terminal";
-const VIEW_TYPE = "obsidian-terminal-view";
+const VIEW_TYPE = "anvil-terminal-container-view";
 
 type AnvilPluginLike = {
   openDefaultTerminal: () => Promise<void>;
@@ -39,16 +39,16 @@ async function openTerminal() {
     const plugin = app.plugins.plugins[id] as AnvilPluginLike;
     void plugin.openDefaultTerminal().then(() => done(null));
   }, PLUGIN_ID);
-  await $(".obsidian-terminal-view .xterm").waitForExist({ timeout: 10000 });
+  await $(".anvil-terminal-container-view .xterm").waitForExist({ timeout: 10000 });
 }
 
 async function focusTerminal() {
-  await $(".obsidian-terminal-view .xterm-helper-textarea").waitForExist({
+  await $(".anvil-terminal-container-view .xterm-helper-textarea").waitForExist({
     timeout: 5000,
   });
   await browser.execute(() => {
     const ta = document.querySelector(
-      ".obsidian-terminal-view .xterm-helper-textarea",
+      ".anvil-terminal-container-view .xterm-helper-textarea",
     ) as HTMLTextAreaElement | null;
     ta?.focus();
   });
@@ -57,7 +57,7 @@ async function focusTerminal() {
 async function readTerminalText(): Promise<string> {
   return browser.execute(() => {
     const rows = document.querySelector(
-      ".obsidian-terminal-view .xterm-rows",
+      ".anvil-terminal-container-view .xterm-rows",
     );
     return rows ? (rows as HTMLElement).innerText : "";
   });
@@ -118,7 +118,7 @@ describe("pty-backend e2e", function () {
 
     const styledSpans = await browser.execute(() => {
       const rows = document.querySelector(
-        ".obsidian-terminal-view .xterm-rows",
+        ".anvil-terminal-container-view .xterm-rows",
       );
       if (!rows) return 0;
       let styled = 0;
@@ -146,8 +146,10 @@ describe("pty-backend e2e", function () {
     await browser.execute((viewType: string) => {
       const app = (window as unknown as ObsidianWindow).app;
       const leaves = app.workspace.getLeavesOfType(viewType);
-      const view = leaves[0]?.view as { backend?: { write: (s: string) => void } };
-      view?.backend?.write("\x03");
+      const view = leaves[0]?.view as {
+        getActiveBackend?: () => { write: (s: string) => void } | null;
+      };
+      view?.getActiveBackend?.()?.write("\x03");
     }, VIEW_TYPE);
     await browser.pause(500);
     // Prove the shell is alive by running another command.
@@ -180,9 +182,9 @@ describe("pty-backend e2e", function () {
     // hook will forward the new size through the backend → SIGWINCH.
     await browser.execute(() => {
       const app = (window as unknown as ObsidianWindow).app;
-      const leaves = app.workspace.getLeavesOfType("obsidian-terminal-view");
-      const view = leaves[0]?.view as { host?: { terminal: { resize: (c: number, r: number) => void } } };
-      view?.host?.terminal.resize(40, 24);
+      const leaves = app.workspace.getLeavesOfType("anvil-terminal-container-view");
+      const view = leaves[0]?.view as { getActiveHost?: () => { terminal: { resize: (c: number, r: number) => void } } | null };
+      view?.getActiveHost?.()?.terminal.resize(40, 24);
     });
     await browser.pause(300);
 
@@ -207,9 +209,9 @@ describe("pty-backend e2e", function () {
       const app = (window as unknown as ObsidianWindow).app;
       const leaves = app.workspace.getLeavesOfType(viewType);
       const view = leaves[0]?.view as {
-        backend?: { childPid?: () => number | null };
+        getActiveBackend?: () => { childPid?: () => number | null } | null;
       };
-      const pid = view?.backend?.childPid?.() ?? null;
+      const pid = view?.getActiveBackend?.()?.childPid?.() ?? null;
       return { binaryPid: pid };
     }, VIEW_TYPE);
     expect(pids.binaryPid).toBeGreaterThan(0);
@@ -243,9 +245,9 @@ describe("pty-backend e2e", function () {
       const app = (window as unknown as ObsidianWindow).app;
       const leaves = app.workspace.getLeavesOfType(viewType);
       const view = leaves[0]?.view as {
-        backend?: { childPid?: () => number | null };
+        getActiveBackend?: () => { childPid?: () => number | null } | null;
       };
-      return view?.backend?.childPid?.() ?? null;
+      return view?.getActiveBackend?.()?.childPid?.() ?? null;
     }, VIEW_TYPE);
     expect(pid).toBeGreaterThan(0);
 
