@@ -290,6 +290,26 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
       ws.setActiveLeaf(containers[0], { focus: false });
       const leaf = ws.getLeaf("split", "horizontal");
       await leaf.setViewState({ type: "empty" });
+
+      // getLeaf("split") places the new leaf AFTER the pivot (the container),
+      // which puts the empty area below the terminal. Move the new leaf's
+      // WorkspaceTabs wrapper to index 0 so the empty area sits above the
+      // terminal — matches the docked-chrome UX the rest of Phase 3 assumes.
+      const rs = rootSplit as unknown as {
+        children: unknown[];
+        insertChild?: (idx: number, child: unknown) => void;
+        removeChild?: (child: unknown) => void;
+      };
+      const wrapper = (leaf as unknown as { parent?: unknown }).parent;
+      if (
+        wrapper &&
+        typeof rs.removeChild === "function" &&
+        typeof rs.insertChild === "function" &&
+        rs.children.indexOf(wrapper) > 0
+      ) {
+        rs.removeChild(wrapper);
+        rs.insertChild(0, wrapper);
+      }
     } catch {
       /* best-effort — no crash on undocumented-API failure */
     } finally {

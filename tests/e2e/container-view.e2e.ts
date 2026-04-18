@@ -643,6 +643,46 @@ describe("container view — empty-leaf sibling reconciler", function () {
     await deleteFixtureNote();
   });
 
+  it("injected empty leaf sits ABOVE the terminal in rootSplit", async function () {
+    await ensureFixtureNote();
+    await browser.executeAsync((path: string, done: (v: unknown) => void) => {
+      const app = (window as unknown as Ws).app;
+      const base = path.replace(/\.md$/, "");
+      void app.workspace.openLinkText(base, "", false).then(() => done(null));
+    }, NOTE_PATH);
+
+    await openDefaultTerminal();
+
+    await browser.execute(() => {
+      const app = (window as unknown as Ws).app;
+      app.workspace.detachLeavesOfType("markdown");
+      app.workspace.trigger?.("layout-change");
+    });
+
+    await browser.waitUntil(
+      async () => (await countNonContainerLeaves()).emptyCount === 1,
+      { timeout: 3000 },
+    );
+
+    // Empty leaf's rendered top edge must be above the terminal container's.
+    const rects = await browser.execute(() => {
+      const emptyEl = document
+        .querySelector(".workspace-leaf .empty-state")
+        ?.closest(".workspace-leaf") as HTMLElement | null;
+      const termEl = document
+        .querySelector(".anvil-terminal-container-view")
+        ?.closest(".workspace-leaf") as HTMLElement | null;
+      return {
+        emptyTop: emptyEl?.getBoundingClientRect().top ?? 0,
+        termTop: termEl?.getBoundingClientRect().top ?? 0,
+      };
+    });
+    const r = rects as { emptyTop: number; termTop: number };
+    expect(r.emptyTop).toBeLessThan(r.termTop);
+
+    await deleteFixtureNote();
+  });
+
   it("cold-open terminal (no notes) stays stable — no infinite insert loop", async function () {
     await openDefaultTerminal();
 
