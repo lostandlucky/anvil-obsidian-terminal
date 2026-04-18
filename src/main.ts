@@ -272,8 +272,24 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
 
     this.insertingEmptySibling = true;
     try {
-      const leaf = workspace.createLeafInParent(rootSplit, 0);
-      await (leaf as WorkspaceLeaf).setViewState({ type: "empty" });
+      // Use Obsidian's native split path rather than createLeafInParent.
+      // createLeafInParent produces a bare leaf (no WorkspaceTabs wrapper)
+      // which shows up as "no tab bar" — the exact bug this reconciler
+      // exists to avoid. getLeaf("split", dir) walks Obsidian's normal
+      // split machinery, which wraps the new leaf in a WorkspaceTabs and
+      // so gives it the native tab chip / close X.
+      //
+      // Direction must match rootSplit.direction for the new leaf to be
+      // added as a DIRECT sibling within rootSplit rather than nested in
+      // a new sub-split. rootSplit is flipped to "horizontal" on container
+      // open (see allocateContainerLeaf).
+      const ws = this.app.workspace as typeof this.app.workspace & {
+        setActiveLeaf: (leaf: WorkspaceLeaf, opts?: { focus?: boolean }) => void;
+        getLeaf: (newLeaf: "split", direction: "horizontal" | "vertical") => WorkspaceLeaf;
+      };
+      ws.setActiveLeaf(containers[0], { focus: false });
+      const leaf = ws.getLeaf("split", "horizontal");
+      await leaf.setViewState({ type: "empty" });
     } catch {
       /* best-effort — no crash on undocumented-API failure */
     } finally {

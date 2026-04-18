@@ -596,6 +596,53 @@ describe("container view — empty-leaf sibling reconciler", function () {
     expect(hasPlaceholder).toBe(true);
   });
 
+  it("empty leaf injected after closing last note has a tab bar (WorkspaceTabs wrapper)", async function () {
+    // Reproduce the actual failing scenario — user-visible state when the
+    // reconciler (not Obsidian) has to create the empty leaf:
+    //   1. Open a note → WorkspaceTabs(note) under rootSplit.
+    //   2. Open terminal → rootSplit has [WorkspaceTabs(note), container-bare].
+    //   3. Close the note → WorkspaceTabs(note) detaches, reconciler fires.
+    // Previously the reconciler created a BARE leaf, so the empty placeholder
+    // lacked a tab bar. This test pins that the injected leaf IS wrapped.
+    await ensureFixtureNote();
+    await browser.executeAsync((path: string, done: (v: unknown) => void) => {
+      const app = (window as unknown as Ws).app;
+      const base = path.replace(/\.md$/, "");
+      void app.workspace.openLinkText(base, "", false).then(() => done(null));
+    }, NOTE_PATH);
+
+    await openDefaultTerminal();
+
+    await browser.execute(() => {
+      const app = (window as unknown as Ws).app;
+      app.workspace.detachLeavesOfType("markdown");
+      app.workspace.trigger?.("layout-change");
+    });
+
+    await browser.waitUntil(
+      async () => (await countNonContainerLeaves()).emptyCount === 1,
+      { timeout: 3000, timeoutMsg: "reconciler did not inject empty leaf" },
+    );
+
+    const shape = await browser.execute(() => {
+      const emptyStates = Array.from(
+        document.querySelectorAll(".workspace-leaf .empty-state"),
+      );
+      for (const el of emptyStates) {
+        const leaf = (el as HTMLElement).closest(".workspace-leaf");
+        const tabs = leaf?.closest(".workspace-tabs");
+        const header = tabs?.querySelector(".workspace-tab-header-container");
+        if (tabs && header) return { wrapped: true, headerVisible: header.children.length > 0 };
+      }
+      return { wrapped: false, headerVisible: false };
+    });
+    const s = shape as { wrapped: boolean; headerVisible: boolean };
+    expect(s.wrapped).toBe(true);
+    expect(s.headerVisible).toBe(true);
+
+    await deleteFixtureNote();
+  });
+
   it("cold-open terminal (no notes) stays stable — no infinite insert loop", async function () {
     await openDefaultTerminal();
 
