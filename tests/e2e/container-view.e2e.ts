@@ -214,28 +214,59 @@ describe("container view — core behavior (Phase 3)", function () {
   it("AC6 — container height persists across close/reopen within one session", async function () {
     await openDefaultTerminal();
 
-    // Resize the container to a non-default height
+    // Resize via Obsidian's own dimension path — the same mechanism divider
+    // drag writes to. Seeding both siblings with absolute values gives a
+    // deterministic ratio that recomputeChildrenDimensions can reproduce.
     const targetHeight = 420;
-    await browser.execute((h: number) => {
-      const container = document.querySelector(
-        ".anvil-terminal-container-view",
-      )?.parentElement as HTMLElement | null;
-      if (container) container.style.height = `${h}px`;
-    }, targetHeight);
-    await browser.pause(200);
+    const measured = await browser.executeAsync(
+      (h: number, t: string, done: (v: unknown) => void) => {
+        const app = (window as unknown as Ws).app;
+        const leaves = app.workspace.getLeavesOfType(t);
+        const leaf = leaves[0] as unknown as {
+          dimension?: number | null;
+          containerEl?: HTMLElement;
+          parent?: {
+            containerEl?: HTMLElement;
+            children?: Array<{ dimension?: number | null; containerEl?: HTMLElement }>;
+            recomputeChildrenDimensions?: () => void;
+          };
+        };
+        const parent = leaf.parent;
+        if (parent?.children) {
+          const total = parent.containerEl?.getBoundingClientRect().height ?? 0;
+          for (const c of parent.children) {
+            if (c === leaf) continue;
+            c.dimension = Math.max(1, total - h);
+          }
+          leaf.dimension = h;
+          parent.recomputeChildrenDimensions?.();
+        }
+        setTimeout(
+          () => done({ rect: leaf.containerEl?.getBoundingClientRect().height ?? 0 }),
+          50,
+        );
+      },
+      targetHeight,
+      CONTAINER_VIEW_TYPE,
+    );
+    const m = measured as { rect: number };
+    if (Math.abs(m.rect - targetHeight) >= 5) {
+      throw new Error(`initial resize failed: rect=${m.rect} target=${targetHeight}`);
+    }
 
     await closeAllContainerLeaves();
     await openDefaultTerminal();
 
-    const restoredHeight = await browser.execute(() => {
-      const container = document.querySelector(
-        ".anvil-terminal-container-view",
-      )?.parentElement as HTMLElement | null;
-      return container ? container.getBoundingClientRect().height : 0;
+    const restored = await browser.executeAsync((done: (v: unknown) => void) => {
+      setTimeout(() => {
+        const c = document.querySelector(".anvil-terminal-container-view");
+        const leaf = c?.closest(".workspace-leaf") as HTMLElement | null;
+        done({ rect: leaf ? leaf.getBoundingClientRect().height : 0 });
+      }, 100);
     });
 
-    // Within 5px of the target — small differences acceptable for container chrome
-    expect(Math.abs((restoredHeight as number) - targetHeight)).toBeLessThan(5);
+    const r = restored as { rect: number };
+    expect(Math.abs(r.rect - targetHeight)).toBeLessThan(5);
   });
 
   it("AC7 — editor status overlay does NOT intersect .xterm-viewport", async function () {
@@ -248,7 +279,9 @@ describe("container view — core behavior (Phase 3)", function () {
       const base = path.replace(/\.md$/, "");
       void app.workspace.openLinkText(base, "", false).then(() => done(null));
     }, NOTE_PATH);
-    await browser.pause(300);
+    await $(".workspace-leaf.mod-active .markdown-source-view, .workspace-leaf.mod-active .markdown-reading-view").waitForExist({
+      timeout: 5000,
+    });
 
     const report = await browser.execute(() => {
       const overlays: Element[] = Array.from(

@@ -163,15 +163,30 @@ describe("FI-012 wrap-and-dock (AC15)", function () {
     }, PLUGIN_ID);
 
     const after = await snapshotRootSplit();
-    // Expected shape:
+    // Expected shape per phase-3-fi-012-spike-findings.md:
     //   rootSplit(horizontal) → [ split(vertical) → [tabs(A), tabs(B)], container-leaf ]
+    // The container can land as a direct leaf or wrapped in a tabs group —
+    // `createLeafInParent` may produce either. The load-bearing assertion is
+    // that the two notes remain wrapped as a vertical split sibling to the
+    // container leaf, NOT flattened into a horizontal row with the container.
     expect(after.direction).toBe("horizontal");
     expect(after.childCount).toBe(2);
-    // First child is a nested WorkspaceSplit with direction = original ("vertical"), 2 grandchildren
     expect(after.childShapes[0].direction).toBe("vertical");
     expect(after.childShapes[0].grandchildCount).toBe(2);
-    // Second child is the container's tab group (1 grandchild = the container leaf)
-    expect(after.childShapes[1].grandchildCount).toBeGreaterThanOrEqual(1);
+
+    const containerUnderRoot = await browser.execute((t: string) => {
+      const app = (window as unknown as Ws).app;
+      const leaves = app.workspace.getLeavesOfType(t);
+      if (leaves.length !== 1) return false;
+      const rs = app.workspace.rootSplit as unknown;
+      let node: unknown = (leaves[0] as unknown as { parent?: unknown }).parent;
+      while (node) {
+        if (node === rs) return true;
+        node = (node as { parent?: unknown }).parent;
+      }
+      return false;
+    }, CONTAINER_VIEW_TYPE);
+    expect(containerUnderRoot).toBe(true);
   });
 
   it("AC15 reverse — closing container restores original rootSplit layout exactly", async function () {

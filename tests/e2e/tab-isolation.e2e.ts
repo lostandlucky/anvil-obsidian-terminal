@@ -227,7 +227,24 @@ describe("Phase 3 — R8 isolation probes against container view", function () {
       container.dispatchEvent(ev);
     }, NOTE_PATH);
 
-    await browser.pause(300);
+    // Absence-of-change check — no DOM write we can wait *for*. The drop
+    // would either be ignored (desired) or would inject markdown into the
+    // container asynchronously. Poll for "markdown appeared" up to 1s;
+    // if it never appears, the container stayed clean.
+    await browser
+      .waitUntil(
+        async () => {
+          const has = await browser.execute(() => {
+            const c = document.querySelector(".anvil-terminal-container-view");
+            return !!c?.querySelector(".markdown-source-view, .markdown-preview-view");
+          });
+          return !!has;
+        },
+        { timeout: 1000, timeoutMsg: "no markdown injected (expected)" },
+      )
+      .catch(() => {
+        /* timeout is the success case here */
+      });
 
     const state = await browser.execute(() => {
       const container = document.querySelector(".anvil-terminal-container-view");
