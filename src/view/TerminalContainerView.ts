@@ -45,15 +45,14 @@ export class TerminalContainerView extends ItemView {
   private activeTabId: string | null = null;
   private tabCounter = 0;
   private tabStripEl: HTMLElement | null = null;
+  private tabListEl: HTMLElement | null = null;
+  private tabAddEl: HTMLElement | null = null;
   private contentAreaEl: HTMLElement | null = null;
   private bottomBufferEl: HTMLElement | null = null;
   private heightObserver: ResizeObserver | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: HostPlugin) {
     super(leaf);
-    this.addAction("plus", "New terminal", () => {
-      void this.addTab(this.resolveDefaultSpec());
-    });
   }
 
   getViewType(): string {
@@ -101,6 +100,8 @@ export class TerminalContainerView extends ItemView {
     this.tabs = [];
     this.activeTabId = null;
     this.tabStripEl = null;
+    this.tabListEl = null;
+    this.tabAddEl = null;
     this.contentAreaEl = null;
     this.bottomBufferEl = null;
   }
@@ -111,6 +112,17 @@ export class TerminalContainerView extends ItemView {
     root.addClass("anvil-terminal-container-view");
 
     this.tabStripEl = root.createDiv({ cls: "anvil-terminal-tabstrip" });
+    // Tabs live in an inner flex row so the `+` button can be a persistent
+    // rightmost sibling of the list without having to be detach/reappended
+    // on every addTab/closeTab.
+    this.tabListEl = this.tabStripEl.createDiv({ cls: "anvil-terminal-tab-list" });
+    this.tabAddEl = this.tabStripEl.createDiv({ cls: "anvil-terminal-tab-add", text: "+" });
+    this.tabAddEl.setAttr("aria-label", "New terminal");
+    this.tabAddEl.setAttr("role", "button");
+    this.tabAddEl.addEventListener("click", () => {
+      void this.addTab(this.resolveDefaultSpec());
+    });
+
     this.contentAreaEl = root.createDiv({ cls: "anvil-terminal-content" });
     this.bottomBufferEl = root.createDiv({ cls: "anvil-terminal-bottom-buffer" });
 
@@ -199,13 +211,13 @@ export class TerminalContainerView extends ItemView {
   }
 
   async addTab(spec: TerminalTabSpec): Promise<string> {
-    if (!this.tabStripEl || !this.contentAreaEl) return "";
+    if (!this.tabListEl || !this.contentAreaEl) return "";
 
     this.tabCounter += 1;
     const id = `tab-${this.tabCounter}`;
     const label = `Terminal ${this.tabCounter}`;
 
-    const tabButtonEl = this.tabStripEl.createDiv({ cls: "anvil-terminal-tab" });
+    const tabButtonEl = this.tabListEl.createDiv({ cls: "anvil-terminal-tab" });
     const tabLabelEl = tabButtonEl.createSpan({
       cls: "anvil-terminal-tab-label",
       text: label,

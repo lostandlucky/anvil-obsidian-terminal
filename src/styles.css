@@ -23,8 +23,36 @@
   gap: 0;
   background: var(--background-secondary);
   border-bottom: 1px solid var(--background-modifier-border);
+  overflow-y: hidden;
+}
+
+.anvil-terminal-tab-list {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+.anvil-terminal-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-medium);
+  line-height: 1;
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.anvil-terminal-tab-add:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
 .anvil-terminal-tab {

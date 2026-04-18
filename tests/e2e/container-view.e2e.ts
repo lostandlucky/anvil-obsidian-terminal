@@ -379,3 +379,125 @@ describe("container view — core behavior (Phase 3)", function () {
     expect(r.childCount).toBe(0);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Post-merge refinement: tabstrip `+` replaces the view-header action.
+// DOM contract extensions:
+//   .anvil-terminal-tab-list — inner flex row that holds the N tab buttons
+//   .anvil-terminal-tab-add  — persistent sibling of the tab list, rightmost
+//                              child of .anvil-terminal-tabstrip, opens a new
+//                              default tab on click
+// The constructor-level `addAction("plus", "New terminal", ...)` is removed;
+// the view-header should contain no element with aria-label "New terminal".
+// -----------------------------------------------------------------------------
+
+describe("container view — tabstrip + button", function () {
+  beforeEach(async function () {
+    await closeAllContainerLeaves();
+  });
+  afterEach(async function () {
+    await closeAllContainerLeaves();
+  });
+
+  it("view-header no longer contains a New terminal action", async function () {
+    await openDefaultTerminal();
+    const hasViewHeaderPlus = await browser.execute(() => {
+      const header = document.querySelector(
+        ".anvil-terminal-container-view",
+      )?.closest(".workspace-leaf")?.querySelector(".view-actions");
+      if (!header) return false;
+      for (const el of Array.from(header.querySelectorAll("*"))) {
+        const aria = el.getAttribute("aria-label") ?? "";
+        if (aria.includes("New terminal")) return true;
+      }
+      return false;
+    });
+    expect(hasViewHeaderPlus).toBe(false);
+  });
+
+  it("tabstrip contains a .anvil-terminal-tab-add button as its rightmost child", async function () {
+    await openDefaultTerminal();
+    const report = await browser.execute(() => {
+      const strip = document.querySelector(".anvil-terminal-tabstrip");
+      if (!strip) return { present: false };
+      const add = strip.querySelector(":scope > .anvil-terminal-tab-add");
+      const last = strip.lastElementChild;
+      return {
+        present: !!add,
+        isLast: !!add && add === last,
+        isDirectChild: !!add && add.parentElement === strip,
+      };
+    });
+    const r = report as { present: boolean; isLast?: boolean; isDirectChild?: boolean };
+    expect(r.present).toBe(true);
+    expect(r.isLast).toBe(true);
+    expect(r.isDirectChild).toBe(true);
+  });
+
+  it("clicking the tabstrip + opens a new tab", async function () {
+    await openDefaultTerminal();
+
+    const before = await browser.execute((t: string) => {
+      const app = (window as unknown as Ws).app;
+      const view = app.workspace.getLeavesOfType(t)[0]?.view as unknown as ContainerView;
+      return view.getTabIds?.().length ?? 0;
+    }, CONTAINER_VIEW_TYPE);
+
+    const addBtn = await $(".anvil-terminal-tabstrip .anvil-terminal-tab-add");
+    await addBtn.click();
+
+    await browser.waitUntil(
+      async () => {
+        const count = await browser.execute((t: string) => {
+          const app = (window as unknown as Ws).app;
+          const view = app.workspace.getLeavesOfType(t)[0]?.view as unknown as ContainerView;
+          return view.getTabIds?.().length ?? 0;
+        }, CONTAINER_VIEW_TYPE);
+        return count === before + 1;
+      },
+      { timeout: 5000, timeoutMsg: "clicking + did not open a new tab" },
+    );
+  });
+
+  it("+ stays rightmost after multiple tabs are opened", async function () {
+    await openDefaultTerminal();
+    await openDefaultTerminal();
+    await openDefaultTerminal();
+
+    const shape = await browser.execute(() => {
+      const strip = document.querySelector(".anvil-terminal-tabstrip");
+      if (!strip) return null;
+      const children = Array.from(strip.children);
+      const lastClass = strip.lastElementChild?.className ?? "";
+      const tabListChildCount =
+        strip.querySelector(":scope > .anvil-terminal-tab-list")?.children.length ?? 0;
+      return {
+        stripChildCount: children.length,
+        lastIsAdd: lastClass.includes("anvil-terminal-tab-add"),
+        tabListChildCount,
+      };
+    });
+    const s = shape as { stripChildCount: number; lastIsAdd: boolean; tabListChildCount: number } | null;
+    expect(s).not.toBeNull();
+    expect(s!.lastIsAdd).toBe(true);
+    expect(s!.tabListChildCount).toBe(3);
+  });
+
+  it("+ stays rightmost after a tab is closed", async function () {
+    await openDefaultTerminal();
+    await openDefaultTerminal();
+
+    await browser.executeAsync((t: string, done: (v: unknown) => void) => {
+      const app = (window as unknown as Ws).app;
+      const view = app.workspace.getLeavesOfType(t)[0]?.view as unknown as ContainerView;
+      const ids = view.getTabIds?.() ?? [];
+      void view.closeTab?.(ids[0]).then(() => done(null));
+    }, CONTAINER_VIEW_TYPE);
+
+    const lastIsAdd = await browser.execute(() => {
+      const strip = document.querySelector(".anvil-terminal-tabstrip");
+      return (strip?.lastElementChild?.className ?? "").includes("anvil-terminal-tab-add");
+    });
+    expect(lastIsAdd).toBe(true);
+  });
+});
