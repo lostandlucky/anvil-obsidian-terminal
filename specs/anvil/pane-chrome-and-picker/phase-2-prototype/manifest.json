@@ -1,0 +1,9 @@
+{
+  "id": "anvil-prototype-container",
+  "name": "Anvil Prototype: Workspace Container (Phase 2 spike)",
+  "version": "0.0.1-phase2-spike",
+  "minAppVersion": "1.5.0",
+  "description": "Throwaway Phase 2 spike for anvil-obsidian-terminal. Single ItemView leaf multiplexing N xterm instances via a vertical side-tab selector. Do not ship.",
+  "author": "Steve Day",
+  "isDesktopOnly": true
+}

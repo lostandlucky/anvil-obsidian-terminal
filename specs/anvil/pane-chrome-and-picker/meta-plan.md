@@ -85,26 +85,41 @@ Phase 1 is fully independent of 2 and 3 — different file, different surface, d
 
 ## Phase 3: Workspace Container Implementation
 
-**Goal:** Apply Phase 2's chosen design. The terminal pane gains the native chrome FI-014 enumerates (close affordance, drag handle, height persistence, editor-status-overlay displacement), opening additional terminals adds them as tabs to the same shared container rather than stacking as sibling panes, and opening the dock with existing horizontal columns no longer flattens them (FI-012). All three FI value statements land as user-visible behavior. The new undocumented-API surface ships with the same feature-detect + graceful-degrade pattern as the existing dock code.
+**Goal:** Apply Phase 2's chosen design (see [ADR 0006](../../docs/adr/0006-workspace-container.md) and [phase-2-lessons.md](phase-2-lessons.md)). The terminal dock becomes a single `ItemView` leaf — plugin-owned — hosting N xterm instances with plugin-drawn chrome (tab list, close affordances, `+`). "Tabs" in this phase means *our internal tabs inside one leaf*, not Obsidian `WorkspaceTabs`; the two are structurally different and the ADR explains why Obsidian's isn't available to plugins. Close X, drag affordance (Obsidian's leaf-level view-header drag), height persistence, and editor-status-overlay displacement land as user-visible behavior. The rootSplit-flatten fix (FI-012) remains independent and stays in the backlog for now.
 
 **Dependencies:** Phase 2 complete (ADR accepted, prototype proven).
 
 **Success criteria:**
-- Terminal close X is visible and functional without keyboard fallback
-- Native drag affordance repositions the terminal pane (or any individual terminal tab within the group)
+- Terminal close X is visible and functional without keyboard fallback (plugin-drawn — we don't get Obsidian's tab-strip close for free since we're not in a `WorkspaceTabs`)
+- Terminal pane is repositionable via Obsidian's view-header drag at the leaf level. In-container tab reordering is not required for Phase 3 (FI to follow if dogfooding asks for it)
 - Terminal height persists across close/reopen
 - Obsidian's editor status overlay no longer overlaps terminal text when a note is open above
-- Opening a second terminal adds it as a new tab in the existing terminal container — does NOT create a sibling pane stacked next to or above the existing terminal
-- The plus action (today on the view header) opens the new terminal as a tab in the same group
-- With existing horizontal note columns, opening the dock leaves columns side-by-side and docks the terminal container below as a full-width row
-- E2E coverage of the new container + tab behavior matches the standard set in `testing-approach.md`
-- Feature-detect fallbacks degrade to today's flatten-on-flip + sibling-pane behavior if the new APIs disappear in a future Obsidian — never crash
+- Opening a second terminal adds it as a new in-container tab — does NOT create a sibling Obsidian leaf next to or above the existing terminal
+- The `+` action opens a new in-container tab (canonical location — tab strip or view-header action — decided in the phase spec)
+- With existing horizontal note columns, opening the dock leaves columns side-by-side and docks the container below as a full-width row (FI-012 remains deferred; this criterion degrades to "dock opens somewhere reasonable" if FI-012 isn't in Phase 3 scope)
+- E2E coverage: `tests/e2e/tab-isolation.e2e.ts` rewritten for the container view type, with R8 probes ported from the Phase 2 prototype before the prototype is deleted
+- `createLeafInParent` feature-detect ships with a graceful fallback (degraded isolation, one-time console warning) — never crash
 
 **Risk flags:**
-- `tests/e2e/tab-isolation.e2e.ts` may need updating if the container change shifts leaf-isolation semantics
-- HTML5 DnD Electron flakiness flagged in `testing-approach.md` — native tab drag is supposed to sidestep it; verify
-- Spike-to-impl drift: a throwaway prototype won't have hit every edge case
-- A small Phase 3.5-style follow-up may be needed if dogfooding surfaces chrome regressions
+- `tests/e2e/tab-isolation.e2e.ts` needs rewriting, not tweaking — it tests the single-terminal `TerminalView` pattern, which the container replaces. Phase 2's `r8.e2e.ts` is the shape to port in.
+- HTML5 DnD Electron flakiness (see `testing-approach.md`) still applies if Phase 3 implements cross-tab drag within the container — the prior meta-plan's "native tab drag sidesteps this" assumption is void because we have no `WorkspaceTabs`. Treat in-container drag as out of scope unless the phase spec explicitly pulls it in.
+- FI-012 (wrap-and-dock) still unsolved. Phase 3 ships with today's rootSplit-flatten-on-dock behavior intact; the flatten UX remains "jarring but acceptable" per MT-007.
+- Spike-to-impl drift: the Phase 2 prototype didn't exercise `getState` / `setState` tab serialization. Phase 3 designs that fresh.
+- R8e residual (third-party `setViewState` clobber) is documented, not fixed. If dogfooding surfaces user reports, a detect-and-recover FI follows.
+- A small Phase 3.5-style follow-up may be needed if dogfooding surfaces chrome regressions.
+
+**Notes from Phase 2 (added 2026-04-17):**
+
+Phase 2's ADR is [docs/adr/0006-workspace-container.md](../../docs/adr/0006-workspace-container.md) (not 0005 as this meta-plan originally predicted — 0005 was taken by picker headers). Full report: [phase-2-completion-report.md](phase-2-completion-report.md). Implementation-grade guidance and clean-code notes live in [phase-2-lessons.md](phase-2-lessons.md) — read that before writing Phase 3's spec. Key load-bearing properties Phase 3 must preserve or knowingly change:
+
+- **Leaf placement: `workspace.createLeafInParent(rootSplit, rootSplit.children.length)` with `rootSplit.direction = "horizontal"`.** Pattern already in `src/dock/bottom-dock.ts:44–77`. This is the load-bearing R8b/c/d mitigation — any shift to `workspace.getLeaf("split", "horizontal")` reopens the sibling-into attack surface. Feature-detect and fall back to `getLeaf("split")` only as a degraded mode; surface a one-time console warning when that happens.
+- **Set `view.navigation = false` on the container class.** Load-bearing R8a mitigation. Documented since Obsidian 0.15.1; no feature-detect needed (minAppVersion 1.5.0).
+- **Do NOT call `setPinned(true)`.** Tried and dropped — redundant when `navigation = false` is set. The ADR records this so future maintainers don't re-add it by habit.
+- **Integration seam is `src/main.ts:159–170`'s `getDock()`.** Phase 3's `getDock()` returns the container leaf (creating it if absent); `openTerminalWithSpec(spec)` calls `container.addTab(spec)` instead of `dock.openLeaf() + setViewState`. `BottomDock` collapses to single-leaf; `reconcileDock` becomes "is the container open?"
+- **Tab state serialization required.** Obsidian layout-save/restore handles the container leaf but not the N tabs inside — Phase 3 owes `getState()`/`setState()` on the container view that serializes tab specs `{shell, cwd, shellArgs}[]` and restores them in order.
+- **R8e is documented residual, not engineering work.** Third-party plugins calling `leaf.setViewState({type:"markdown"})` on the container leaf can destroy it; no sanctioned API blocks this. User-facing documentation lives at [docs/explanations/third-party-plugin-compatibility.md](../../docs/explanations/third-party-plugin-compatibility.md); update it when Phase 3 ships (it currently hedges with "once the container ships").
+- **Throwaway assets to delete when Phase 3 lands:** `wdio.proto.conf.mts`, the `test:e2e:proto` script in `package.json`, and the entire `specs/anvil/pane-chrome-and-picker/phase-2-prototype/` directory. Phase 3 replaces the prototype's R8 coverage with additions to `tests/e2e/tab-isolation.e2e.ts`.
+- **FI-012 relationship.** Independent, per the ADR. Phase 3 can ship Rank 3 without solving FI-012's "flatten on dock open" concern; both still benefit from a single structural pass.
 
 ---
 

@@ -74,6 +74,7 @@ That's it. If any of those steps misbehave, see the troubleshooting notes at the
 - **You want to hack on the plugin** → [docs/how-to/dev-setup.md](docs/how-to/dev-setup.md)
 - **You want to install the built artifacts into a vault** → [docs/how-to/manual-install.md](docs/how-to/manual-install.md)
 - **You want to run the tests** → [docs/how-to/run-tests.md](docs/how-to/run-tests.md)
+- **Your terminal unexpectedly closed or got replaced** → [docs/explanations/third-party-plugin-compatibility.md](docs/explanations/third-party-plugin-compatibility.md)
 - **You want to know why a decision was made** → [docs/adr/](docs/adr/)
 - **You want to know how docs work in this repo** → [docs/DOCUMENTATION_STANDARDS.md](docs/DOCUMENTATION_STANDARDS.md)
 
@@ -83,5 +84,6 @@ That's it. If any of those steps misbehave, see the troubleshooting notes at the
 - No codesigning on the `pty-server` binary — fresh installs may need a one-shot `xattr -d com.apple.quarantine` until codesigning lands in Phase 4. See [ADR 0003](docs/adr/0003-pty-backend.md).
 - No settings tab. Nothing is configurable.
 - No multi-instance isolation guarantees. You can open more than one terminal pane, but it hasn't been stress-tested.
+- Other plugins can close the terminal. Certain third-party plugins (Mononote, Hover Editor, and anything else that globally re-routes workspace leaves) can replace Anvil's terminal pane with something else, killing the shell. Obsidian's plugin API offers no way to block this. See [docs/explanations/third-party-plugin-compatibility.md](docs/explanations/third-party-plugin-compatibility.md).
 - macOS arm64 only. See ADR 0001.
 - Manual install only. No community plugin store submission. See ADR 0002.
