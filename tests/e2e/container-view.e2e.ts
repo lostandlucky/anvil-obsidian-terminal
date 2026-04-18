@@ -501,3 +501,124 @@ describe("container view — tabstrip + button", function () {
     expect(lastIsAdd).toBe(true);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Empty-leaf sibling reconciler: when the container would otherwise be alone
+// in rootSplit, inject a native `empty` leaf so the user always has a
+// "Create new note / Go to file / Close" placeholder above the terminal.
+// -----------------------------------------------------------------------------
+
+describe("container view — empty-leaf sibling reconciler", function () {
+  beforeEach(async function () {
+    await closeAllContainerLeaves();
+    await browser.execute(() => {
+      const app = (window as unknown as Ws).app;
+      app.workspace.detachLeavesOfType("markdown");
+      app.workspace.detachLeavesOfType("empty");
+      app.workspace.trigger?.("layout-change");
+    });
+  });
+  afterEach(async function () {
+    await closeAllContainerLeaves();
+  });
+
+  async function countNonContainerLeaves(): Promise<{
+    containerCount: number;
+    emptyCount: number;
+    markdownCount: number;
+    rootDirectChildCount: number;
+  }> {
+    return browser.execute((t: string) => {
+      const app = (window as unknown as Ws).app;
+      const rs = (app.workspace as unknown as { rootSplit: { children: unknown[] } }).rootSplit;
+      return {
+        containerCount: app.workspace.getLeavesOfType(t).length,
+        emptyCount: app.workspace.getLeavesOfType("empty").length,
+        markdownCount: app.workspace.getLeavesOfType("markdown").length,
+        rootDirectChildCount: rs.children.length,
+      };
+    }, CONTAINER_VIEW_TYPE);
+  }
+
+  it("closing the last note with the terminal open injects an empty sibling", async function () {
+    await ensureFixtureNote();
+    // Open the fixture note first so the container becomes a sibling to it.
+    await browser.executeAsync((path: string, done: (v: unknown) => void) => {
+      const app = (window as unknown as Ws).app;
+      const base = path.replace(/\.md$/, "");
+      void app.workspace.openLinkText(base, "", false).then(() => done(null));
+    }, NOTE_PATH);
+
+    await openDefaultTerminal();
+
+    // Now close all markdown leaves — the reconciler should inject an empty
+    // placeholder so the container isn't alone.
+    await browser.execute(() => {
+      const app = (window as unknown as Ws).app;
+      app.workspace.detachLeavesOfType("markdown");
+      app.workspace.trigger?.("layout-change");
+    });
+
+    await browser.waitUntil(
+      async () => {
+        const c = await countNonContainerLeaves();
+        return c.containerCount === 1 && c.emptyCount === 1;
+      },
+      { timeout: 3000, timeoutMsg: "reconciler did not inject empty leaf after last-note close" },
+    );
+
+    await deleteFixtureNote();
+  });
+
+  it("the injected empty leaf renders Obsidian's native placeholder", async function () {
+    await openDefaultTerminal();
+
+    await browser.waitUntil(
+      async () => {
+        const c = await countNonContainerLeaves();
+        return c.containerCount === 1 && c.emptyCount === 1;
+      },
+      { timeout: 3000, timeoutMsg: "no empty sibling was injected on cold-open terminal" },
+    );
+
+    // Obsidian's empty view renders "Create new note" as a labelled action.
+    // Look for that text anywhere inside an empty-typed view's DOM.
+    const hasPlaceholder = await browser.execute(() => {
+      const candidates = Array.from(
+        document.querySelectorAll(".workspace-leaf .empty-state, .workspace-leaf"),
+      );
+      for (const el of candidates) {
+        const txt = (el as HTMLElement).textContent ?? "";
+        if (txt.includes("Create new note")) return true;
+      }
+      return false;
+    });
+    expect(hasPlaceholder).toBe(true);
+  });
+
+  it("cold-open terminal (no notes) stays stable — no infinite insert loop", async function () {
+    await openDefaultTerminal();
+
+    // Wait for first reconcile tick.
+    await browser.waitUntil(
+      async () => (await countNonContainerLeaves()).emptyCount === 1,
+      { timeout: 3000 },
+    );
+
+    const t0 = await countNonContainerLeaves();
+    // Let the event loop spin — any runaway would multiply children here.
+    await browser.pause(300);
+    const t1 = await countNonContainerLeaves();
+
+    expect(t0.containerCount).toBe(1);
+    expect(t0.emptyCount).toBe(1);
+    expect(t1.containerCount).toBe(1);
+    expect(t1.emptyCount).toBe(1);
+    // rootSplit directly holds two children: the empty-tabs-wrapper and our
+    // bare container leaf. (Empty is created via createLeafInParent which
+    // wraps it in a WorkspaceTabs; the container was created as a direct
+    // child pre-Phase-3-change.)
+    expect(t1.rootDirectChildCount).toBeGreaterThanOrEqual(2);
+    expect(t1.rootDirectChildCount).toBeLessThan(5);
+  });
+});

@@ -46,6 +46,7 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   private wrapAndDock: WrapAndDock | null = null;
   private lastContainerHeight: number | null = null;
   private expectingManualTab = false;
+  private insertingEmptySibling = false;
 
   getLastContainerHeight(): number | null {
     return this.lastContainerHeight;
@@ -78,7 +79,10 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
     this.addSettingTab(new AnvilSettingsTab(this, this));
 
     this.registerEvent(
-      this.app.workspace.on("layout-change", () => this.reconcileWrap()),
+      this.app.workspace.on("layout-change", () => {
+        this.reconcileWrap();
+        void this.reconcileEmptySibling();
+      }),
     );
   }
 
@@ -243,5 +247,55 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
         this.wrapHandle = null;
       }
     }
+  }
+
+  /**
+   * When the container is open and would otherwise be the only leaf under
+   * rootSplit, inject Obsidian's native `empty` placeholder so the user
+   * always has a "Create new note / Go to file / Close" area above the
+   * terminal. Matches Obsidian's own behaviour on an otherwise empty vault.
+   * Only fires on the note→no-note transition; cold-open is already handled
+   * by Obsidian's native empty-tab regeneration.
+   */
+  private async reconcileEmptySibling(): Promise<void> {
+    if (this.insertingEmptySibling) return;
+    const containers = this.app.workspace.getLeavesOfType(
+      TERMINAL_CONTAINER_VIEW_TYPE,
+    );
+    if (containers.length === 0) return;
+
+    const workspace = this.app.workspace as unknown as WorkspaceLike;
+    const rootSplit = workspace.rootSplit;
+
+    if (this.hasNonContainerLeaf(rootSplit)) return;
+    if (typeof workspace.createLeafInParent !== "function") return;
+
+    this.insertingEmptySibling = true;
+    try {
+      const leaf = workspace.createLeafInParent(rootSplit, 0);
+      await (leaf as WorkspaceLeaf).setViewState({ type: "empty" });
+    } catch {
+      /* best-effort — no crash on undocumented-API failure */
+    } finally {
+      this.insertingEmptySibling = false;
+    }
+  }
+
+  /** Walk rootSplit's descendants looking for any leaf whose view is not
+   *  our container. Used by reconcileEmptySibling. */
+  private hasNonContainerLeaf(node: unknown): boolean {
+    const n = node as {
+      children?: unknown[];
+      view?: { getViewType?: () => string };
+    };
+    if (Array.isArray(n.children)) {
+      for (const child of n.children) {
+        if (this.hasNonContainerLeaf(child)) return true;
+      }
+      return false;
+    }
+    // Leaf node — check its view type.
+    const type = n.view?.getViewType?.();
+    return !!type && type !== TERMINAL_CONTAINER_VIEW_TYPE;
   }
 }
