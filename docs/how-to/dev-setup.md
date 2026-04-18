@@ -67,7 +67,7 @@ After enabling the plugin in your throwaway vault:
 
 1. Cmd-P → **Open terminal**. A pane should appear running your real shell at the vault root.
 2. Type `pwd` to confirm the cwd, then `echo $SHELL` to confirm which shell launched.
-3. Edit something visible — for example, change a label in `src/view/TerminalView.ts` or the error prefix in `src/pty/pty-backend.ts`.
+3. Edit something visible — for example, change a label in `src/view/TerminalContainerView.ts` or the error prefix in `src/pty/pty-backend.ts`.
 4. Wait for `npm run dev` to finish rebuilding (it's fast, sub-second).
 5. Reload the plugin and reopen the terminal. Your edit should be visible.
 

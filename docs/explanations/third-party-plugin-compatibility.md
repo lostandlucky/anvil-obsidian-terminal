@@ -25,7 +25,7 @@ None of those help against a plugin that calls `setViewState` directly. That cal
 
 ## Plugins known to have this pattern
 
-Based on the Phase 2 prior-art research (`Programming/Tabbed Containers with Content Isolation - Prior Art.md` in the project vault):
+Based on the prior-art research that informed [ADR 0006](../adr/0006-workspace-container.md) (`Programming/Tabbed Containers with Content Isolation - Prior Art.md` in the project vault):
 
 - **Mononote** ([dy-sh/obsidian-mononote](https://github.com/dy-sh/obsidian-mononote)) — enforces one-note-per-tab by iterating leaves and re-routing opens. Its heuristic doesn't check for a file marker, so it can target any leaf including Anvil's.
 - **Hover Editor** — manages hover-preview leaves and can restructure the workspace on certain triggers.

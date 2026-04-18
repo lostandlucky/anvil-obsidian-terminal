@@ -2,13 +2,13 @@
 
 ## What it is
 
-The TypeScript driver for the standalone Rust `pty-server` binary. It lives under `src/pty/` and is the seam between `TerminalView` (xterm.js in an Obsidian `ItemView`) and a real pseudoterminal running a user shell. The backend spawns one `pty-server` child process per terminal view, discovers the port the child prints on stdout, opens a localhost WebSocket to it, and shuttles framed messages in both directions. Rationale for the Rust-binary-over-WebSocket shape lives in [ADR 0003](../adr/0003-pty-backend.md); the wire protocol is defined in [`pty-server/PROTOCOL.md`](../../pty-server/PROTOCOL.md).
+The TypeScript driver for the standalone Rust `pty-server` binary. It lives under `src/pty/` and is the seam between `TerminalContainerView` (xterm.js in an Obsidian `ItemView`) and a real pseudoterminal running a user shell. The backend spawns one `pty-server` child process per tab in the container, discovers the port the child prints on stdout, opens a localhost WebSocket to it, and shuttles framed messages in both directions. Rationale for the Rust-binary-over-WebSocket shape lives in [ADR 0003](../adr/0003-pty-backend.md); the wire protocol is defined in [`pty-server/PROTOCOL.md`](../../pty-server/PROTOCOL.md).
 
 ## What it exposes
 
 ### `terminal-backend.ts`
 
-The narrow interface the view consumes. Also the seam Phase 3 will mock for multi-instance unit tests.
+The narrow interface the view consumes. Callers that need to substitute a different backend implement this interface.
 
 ```typescript
 export interface TerminalBackend {
@@ -26,7 +26,7 @@ export interface TerminalBackend {
 The production implementation of `TerminalBackend`.
 
 - `PtyBackendOptions` — constructor options: `binaryPath`, `shell`, `cwd`, `cols`, `rows`, optional `env`.
-- `PtyBackend` — class implementing `TerminalBackend`. One instance per terminal view, one child process per instance. No port pooling, no multiplexing.
+- `PtyBackend` — class implementing `TerminalBackend`. One instance per container tab, one child process per instance. No port pooling, no multiplexing.
   - `constructor(opts: PtyBackendOptions)`
   - `start(): Promise<void>` — spawns `binaryPath` with args from `buildSpawnArgs`, injects `TERM=xterm-256color` into the child env, waits for the port line on stdout (5s timeout), then opens the WebSocket. Resolves once `ws.onopen` fires. Rejects if port discovery fails or the socket errors.
   - `write(data: string): void` — sends an `input` frame if the socket is `OPEN`; drops otherwise.
@@ -74,10 +74,10 @@ Lifecycle: `start()` spawns the child, reads stdout until a newline, parses the 
 
 - Does not render anything. xterm.js lives in `src/terminal/xterm-host.ts`; the backend never touches the DOM.
 - Does not import `obsidian`. The interface is pure Node + `WebSocket`, so `protocol-client.ts`, `spawn-args.ts`, and `port-discovery.ts` run under Vitest without an Obsidian harness.
-- Does not pick the shell, cwd, or env. The view supplies those via `PtyBackendOptions`. Today `TerminalView` hardcodes `process.env.SHELL || "/bin/zsh"` and the vault root; a future profile picker will sit between the view and the backend.
+- Does not pick the shell, cwd, or env. The view supplies those via `PtyBackendOptions`. The default spec uses `process.env.SHELL || "/bin/zsh"` and the vault root; the profile picker (`ProfilePickerModal`) overrides the spec when the user launches via `Cmd-P → Open terminal`.
 - Does not resolve `binaryPath`. The view computes it from the plugin manifest `dir` and passes an absolute path.
-- Does not multiplex. One `PtyBackend` owns one `pty-server` child which owns one PTY. Multiple terminal views mean multiple backends and multiple binaries.
+- Does not multiplex. One `PtyBackend` owns one `pty-server` child which owns one PTY. Multiple tabs in the container mean multiple backends and multiple binaries.
 - Does not retry. A failed spawn, a missing port line, or a socket error surfaces as an error line and a rejected `start()`; the view decides what to show. There is no reconnect loop.
-- Does not implement profile selection, tmux attach, or any Phase 3 feature.
+- Does not implement profile selection or tmux attach — those live above the view layer in `ProfilePickerModal` and pass a resolved `TerminalTabSpec` into the container view, which then constructs the backend.
 - Does not codesign, notarize, or strip Gatekeeper quarantine from the `pty-server` binary. That is an install-time concern.
-- Does not own the mock REPL at `src/terminal/mock-repl.ts`. The mock is no longer wired into `TerminalView` as of Phase 2b; it remains in the tree as scaffold and is not referenced by the PTY backend.
+- Does not own the mock REPL at `src/terminal/mock-repl.ts`. The mock is not wired into the container view; it remains in the tree as offline scaffold and is not referenced by the PTY backend.

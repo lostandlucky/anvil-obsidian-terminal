@@ -6,9 +6,9 @@ A real system terminal embedded inside Obsidian, built primarily for running Cla
 
 ## What this is
 
-**The vision.** Open a terminal pane in any Obsidian split. Pick a shell from a profile picker (zsh, bash, anything else you've configured). Reattach to a running tmux session if you have one. Run multiple terminal panes side by side. Real PTYs running real shells, not a fake widget.
+**The vision.** Open a terminal inside Obsidian. Pick a shell from a profile picker (zsh, bash, anything else you've configured). Reattach to a running tmux session if you have one. Run several terminals as tabs in a single dock that sits alongside your notes. Real PTYs running real shells, not a fake widget.
 
-**Today (Phase 2b).** xterm.js rendering inside an Obsidian `ItemView`, wired to a real PTY-backed shell via a sidecar Rust binary (`bin/pty-server`). Cmd-P → **Open terminal** opens a pane running your `$SHELL` (or `/bin/zsh`) at the vault root, with working `vim`, `htop`, Ctrl-C, resize, and ANSI colors. The profile picker, multi-instance isolation, and tmux attach are still ahead. See [docs/reference/architecture.md](docs/reference/architecture.md) for the full system map and what exists today vs. what's deferred, [docs/reference/pty-backend.md](docs/reference/pty-backend.md) for the backend's surface, and [ADR 0003](docs/adr/0003-pty-backend.md) for why the backend is a separate Rust binary.
+**Today.** xterm.js rendering inside a single Obsidian `ItemView` that hosts N terminal tabs (plugin-drawn tab strip, per-tab close X, `+` affordance on the right), wired to real PTY-backed shells via a sidecar Rust binary (`bin/pty-server`). Cmd-P → **Open terminal** opens the profile picker; pick a shell (or reattach to a tmux session) and a tab appears running it at the vault root, with working `vim`, `htop`, Ctrl-C, resize, and ANSI colors. Opening the terminal when two notes are side-by-side keeps them side-by-side (the terminal docks below them as a full-width row). See [docs/reference/architecture.md](docs/reference/architecture.md) for the full system map, [docs/reference/terminal-container-view.md](docs/reference/terminal-container-view.md) for the container view's public surface, [docs/reference/pty-backend.md](docs/reference/pty-backend.md) for the backend, and [ADR 0003](docs/adr/0003-pty-backend.md) for why the backend is a separate Rust binary.
 
 **Who it's for.** Obsidian users on macOS Apple silicon who want a real terminal inside their vault and are willing to build the plugin from source. There is no community plugin store entry — see [ADR 0002](docs/adr/0002-manual-install-only.md). If that doesn't describe you, this isn't useful yet.
 
@@ -54,7 +54,7 @@ A real system terminal embedded inside Obsidian, built primarily for running Cla
 
 4. **Enable the plugin.** Open the throwaway vault in Obsidian. Settings → Community plugins → enable community plugins if you haven't → toggle **Terminal** on. (You may need to restart the vault if it doesn't show up.)
 
-5. **Open a terminal.** Cmd-P → **Open terminal**. A new pane appears running your real shell, with its prompt (zsh `%`, bash `$`, …) at the vault root.
+5. **Open a terminal.** Cmd-P → **Open terminal**. The profile picker appears listing the shells on your machine (and any running tmux sessions). Pick one — a new tab appears in the terminal dock running that shell at the vault root. Hit the `+` on the right of the tab strip to open another.
 
 6. **Try it.** Run a few real commands:
 
@@ -65,7 +65,7 @@ A real system terminal embedded inside Obsidian, built primarily for running Cla
    vim
    ```
 
-   `pwd` should print the vault root. `vim` should take over the pane and exit cleanly with `:q`. Ctrl-C interrupts a running command. Drag the pane divider to resize — `tput cols` reflects the new width.
+   `pwd` should print the vault root. `vim` should take over the pane and exit cleanly with `:q`. Ctrl-C interrupts a running command. Drag the divider between the notes area and the terminal to resize — `tput cols` reflects the new width.
 
 That's it. If any of those steps misbehave, see the troubleshooting notes at the bottom of [docs/how-to/manual-install.md](docs/how-to/manual-install.md).
 
@@ -80,10 +80,9 @@ That's it. If any of those steps misbehave, see the troubleshooting notes at the
 
 ## Known limits
 
-- No profile picker — the shell is hardcoded to `$SHELL` (or `/bin/zsh`), launched at the vault root. Phase 3.
-- No codesigning on the `pty-server` binary — fresh installs may need a one-shot `xattr -d com.apple.quarantine` until codesigning lands in Phase 4. See [ADR 0003](docs/adr/0003-pty-backend.md).
-- No settings tab. Nothing is configurable.
-- No multi-instance isolation guarantees. You can open more than one terminal pane, but it hasn't been stress-tested.
-- Other plugins can close the terminal. Certain third-party plugins (Mononote, Hover Editor, and anything else that globally re-routes workspace leaves) can replace Anvil's terminal pane with something else, killing the shell. Obsidian's plugin API offers no way to block this. See [docs/explanations/third-party-plugin-compatibility.md](docs/explanations/third-party-plugin-compatibility.md).
-- macOS arm64 only. See ADR 0001.
-- Manual install only. No community plugin store submission. See ADR 0002.
+- No codesigning on the `pty-server` binary — fresh installs may need a one-shot `xattr -d com.apple.quarantine` on the copied binary. See [ADR 0003](docs/adr/0003-pty-backend.md).
+- Terminal tabs don't survive an Obsidian restart. Closing and reopening Obsidian gives you a fresh blank terminal (if the container was open before close) or no terminal (if it wasn't) — the specific tabs you had open, their shells, and their cwd are not persisted. VS Code behaves the same way.
+- Other plugins can close the terminal. Certain third-party plugins (Mononote, Hover Editor, and anything else that globally re-routes workspace leaves) can replace Anvil's terminal pane with something else, killing every shell inside it. Obsidian's plugin API offers no way to block this. See [docs/explanations/third-party-plugin-compatibility.md](docs/explanations/third-party-plugin-compatibility.md).
+- No popout support. Dragging the terminal into its own Obsidian window isn't supported; the PTY is bound to the main window's renderer process.
+- macOS arm64 only. See [ADR 0001](docs/adr/0001-macos-arm64-only.md).
+- Manual install only. No community plugin store submission. See [ADR 0002](docs/adr/0002-manual-install-only.md).

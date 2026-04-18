@@ -8,7 +8,7 @@ Audience for the docs themselves is **future-self plus the occasional early exte
 
 Four quadrants are in scope:
 
-- **Reference.** Hand-written prose under `docs/reference/`. One file per logical unit (commands, settings, the `TerminalView`, the PTY backend once it exists). Third-person, factual, no procedural steps.
+- **Reference.** Hand-written prose under `docs/reference/`. One file per logical unit (commands, settings, the `TerminalContainerView`, the PTY backend). Third-person, factual, no procedural steps.
 - **How-To.** Task-oriented guides under `docs/how-to/`. Titles are problems, not features: "How to run the e2e suite," not "The e2e suite." Second-person ("you"). Seed topics: dev setup, manual install, running tests.
 - **Explanation.** Standalone conceptual docs under `docs/explanations/`. Use sparingly — only when the *model* is the thing worth documenting and a decision-shaped artifact (ADR) won't carry the educational arc. See `## Explanations` below for the rule.
 - **ADR.** Architecture decision records under `docs/adr/`. MADR-minimal format. See the ADRs section below.
@@ -69,9 +69,9 @@ Location: `docs/reference/`. One file per logical unit. Candidate units as of th
 
 - Plugin commands (what shows up in the Obsidian command palette)
 - Plugin settings (the settings tab fields and what they do)
-- `TerminalView` (the Obsidian `ItemView` subclass that hosts the terminal)
+- `TerminalContainerView` (the Obsidian `ItemView` subclass that hosts the N-tab terminal container)
 - The xterm.js host wrapper (`src/terminal/xterm-host.ts`)
-- The PTY backend, once Phase 2 lands
+- The PTY backend (`docs/reference/pty-backend.md`)
 
 Reference is **hand-written**, not generated. No tsdoc/typedoc pipeline for now. The public surface is small enough that a docgen tool is overkill, and the cost of a wrong-but-confident generated doc is higher than the cost of writing prose. Revisit if the surface grows past ~10 units or if the plugin ever ships to the community store.
 
@@ -122,7 +122,7 @@ Seeded slots:
 
 - `0001-macos-arm64-only.md` — retrospective, captures the scope decision from `CLAUDE.md`.
 - `0002-manual-install-only.md` — retrospective, captures the distribution decision.
-- `0003-pty-backend.md` — **reserved**. Write when Phase 2 locks the PTY backend choice. The three candidates (Python pty helper, Rust binary + WebSocket, node-pty with prebuilts) and the tradeoffs are already documented in the meta-plan; the ADR should record which was picked, why, and what gets harder if you need to change it later.
+- `0003-pty-backend.md` — records the PTY backend choice (standalone Rust binary + WebSocket) and the tradeoffs.
 
 Retrospective ADRs are fine. Mark them `Status: Accepted (retrospective)` so it's clear the decision predates the record.
 
@@ -142,8 +142,8 @@ There is no Playwright or shot-scraper pipeline. The project uses wdio for e2e t
 
 When `/document` delegates a write to a subagent — for example, generating a reference doc for a specific source file — the handoff must include:
 
-- **The exact file path** to document (e.g. `src/view/TerminalView.ts`), not a description.
-- **The target doc path** (`docs/reference/terminal-view.md`).
+- **The exact file path** to document (e.g. `src/view/TerminalContainerView.ts`), not a description.
+- **The target doc path** (`docs/reference/terminal-container-view.md`).
 - **The heading structure expected** for that doc type (Reference: What it is / What it exposes / Inputs & Outputs / What it does not do).
 - **The voice rules from this file** — specifically, that reference docs are third-person factual, no tutorials, no invented rationale. Subagents will drift into marketing prose if you don't pin them.
 - **A pointer to this standards file** so the subagent can check its own work against the rules.
@@ -153,6 +153,6 @@ Don't let subagents decide which file to document, which section to write, or wh
 ## Project Notes
 
 - **macOS arm64 only.** Don't write docs that imply cross-platform support. When describing install steps, shell commands, or paths, assume macOS. If a Linux/Windows user shows up, that's a scope change, not a documentation fix.
-- **PTY backend is pending.** Phase 2 will lock the choice. Until it does, don't write reference docs for the backend, and don't write an ADR for it. The slot at `docs/adr/0003-pty-backend.md` is reserved.
+- **PTY backend architecture is locked.** ADR 0003 records the decision; `docs/reference/pty-backend.md` is the surface reference.
 - **E2E harness is pinned and audited.** `wdio-obsidian-service` and the Obsidian test binary are pinned to exact versions. `CLAUDE.md` mandates checking their upgrade state at phase kickoffs. If a doc references the harness version, it can go stale — prefer linking to `package.json` or the `wdio.conf.mts` file rather than hardcoding a version string.
 - **Planning artifacts live in `specs/`, not `docs/`.** `specs/anvil/` holds the meta-plan, phase specs, and completion reports. `/document` should not touch `specs/`. If something from a completion report belongs in the permanent record, lift it into a reference doc or an ADR deliberately — don't auto-sync.
