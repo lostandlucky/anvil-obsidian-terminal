@@ -19,7 +19,7 @@ De-risk the testing strategy before any feature code is written. Prove `wdio-obs
 - `npm test`, `npm run test:unit`, `npm run test:e2e` scripts exist and route correctly
 - One trivial Vitest unit test that passes
 - One trivial e2e spec that launches Obsidian via the service, asserts the workspace loaded, and quits cleanly — no plugin code involved
-- Audit notes committed as `specs/anvil/phase-0-audit.md` covering: what the package downloads and from where, how it verifies the Obsidian binary, what it writes outside the project dir, what lifecycle hooks it runs. Must end with an explicit "safe to adopt / not safe / conditional" conclusion.
+- Audit notes committed as `phase-0-audit.md` covering: what the package downloads and from where, how it verifies the Obsidian binary, what it writes outside the project dir, what lifecycle hooks it runs. Must end with an explicit "safe to adopt / not safe / conditional" conclusion.
 - Brief local-run instructions (how to run each test level, what the pinned versions are) — can live at the top of the audit doc or in a short README section
 
 ## Acceptance Criteria
@@ -30,7 +30,7 @@ De-risk the testing strategy before any feature code is written. Prove `wdio-obs
 4. `package.json` shows exact version pins for all harness-related packages
 5. Obsidian test binary version is pinned (not floating) in the wdio config
 6. Dependabot (or equivalent) config file present and targeting the pinned packages
-7. `specs/anvil/phase-0-audit.md` exists, covers the four audit questions, and ends with an explicit verdict
+7. `phase-0-audit.md` exists, covers the four audit questions, and ends with an explicit verdict
 8. No orphaned Obsidian processes after the e2e run
 
 ## User Testing
@@ -42,7 +42,7 @@ De-risk the testing strategy before any feature code is written. Prove `wdio-obs
 
 ## Exit Condition if Time-Boxed Out
 
-If the e2e smoke test is not green by end of day, stop. Document what was tried, what broke, and invoke the fallback from `testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2). The audit and Vitest skeleton still ship regardless.
+If the e2e smoke test is not green by end of day, stop. Document what was tried, what broke, and invoke the fallback from `../testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2). The audit and Vitest skeleton still ship regardless.
 
 ## Boundaries
 
@@ -53,7 +53,7 @@ If the e2e smoke test is not green by end of day, stop. Document what was tried,
 
 ## Sources
 
-- **Meta-plan:** `specs/anvil/meta-plan.md` (Phase 0 section)
-- **Testing approach:** `specs/anvil/testing-approach.md`
+- **Meta-plan:** `meta-plan.md` (Phase 0 section)
+- **Testing approach:** `../testing-approach.md`
 - **wdio-obsidian-service:** https://github.com/jesse-r-s-hines/wdio-obsidian-service
 - **Dependabot config reference:** https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file

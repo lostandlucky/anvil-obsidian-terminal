@@ -28,7 +28,7 @@ Default selection is the user's default shell. Arrow keys navigate, typing filte
 Each `TerminalView` registers a plus-icon action in its view header via `addAction`. Clicking opens a new terminal running the default shell in a new leaf, bypassing the picker entirely. Same endpoint the picker's default-shell row resolves to.
 
 ### D6: New tmux session naming → tmux auto-assigned **[RESOLVED]**
-Fresh tmux sessions launched via the picker use tmux's default auto-assigned naming (integers). Configurable naming is tracked as FI-001 in `future-ideas-backlog.md`.
+Fresh tmux sessions launched via the picker use tmux's default auto-assigned naming (integers). Configurable naming is tracked as FI-001 in `../future-ideas-backlog.md`.
 
 ### D7: Dock fallback when main area has multiple columns → flip blindly **[RESOLVED]**
 No detection, no notice, no fallback path. The `rootSplit` flip reorients the user's columns into rows while the terminal is docked and restores on close. MT-007 is the explicit UAT gate for whether this stays acceptable.
@@ -81,7 +81,7 @@ Phase 2b landed 2026-04-14 and Phase 3 begins the same day. Skip the Dependabot 
   - Bottom dock geometry: opening a terminal produces a full-width leaf at the bottom of `rootSplit`; closing it restores the original direction.
   - Tab-group isolation across scriptable entry points: quick switcher, file explorer click, Cmd-click on an internal link, `workspace.openLinkText` programmatic opens, and split commands. In each case, opening a note while the terminal is focused MUST NOT replace or sibling-into the terminal leaf.
   - JS-injection drop simulation: dispatching a synthetic HTML5 `drop` event with a `DataTransfer` payload onto the terminal's container MUST NOT produce a mixed tab group containing the terminal and a note.
-- **AC3:** MT-005 through MT-012 in `manual-test-checklist.md` are all run against a real Obsidian 1.12.7+ install and recorded with date, result, and notes. At minimum, MT-007 (flatten UAT) and MT-009 (picker UAT) MUST be acknowledged with a subjective judgment — not just ✅/❌.
+- **AC3:** MT-005 through MT-012 in `../manual-test-checklist.md` are all run against a real Obsidian 1.12.7+ install and recorded with date, result, and notes. At minimum, MT-007 (flatten UAT) and MT-009 (picker UAT) MUST be acknowledged with a subjective judgment — not just ✅/❌.
 - **AC4:** No regressions in the existing Phase 2b test suite. All prior unit + e2e tests continue to pass.
 - **AC5:** `npm run build` compiles cleanly, copies the `pty-server` binary, and the built plugin loads in Obsidian without errors.
 - **AC6:** Settings tab appears in Obsidian's community plugins section, lists the three schema keys, and persists changes across an Obsidian restart.
@@ -91,7 +91,7 @@ Phase 2b landed 2026-04-14 and Phase 3 begins the same day. Skip the Dependabot 
 
 ## User testing
 
-The executing agent should hand these off as a "go play with it" list at phase handoff. Most map directly to entries in `manual-test-checklist.md`.
+The executing agent should hand these off as a "go play with it" list at phase handoff. Most map directly to entries in `../manual-test-checklist.md`.
 
 1. **Pick a shell from the picker.** Run the "Open terminal" command with tmux off. Walk through the Launch new section — pick your default, cancel, filter by typing, pick a non-default. Does it feel like Obsidian's quick switcher? (MT-009 steps 1–6)
 2. **Attach to running tmux sessions.** From an external terminal, start two tmux sessions (`tmux new -d -s work`, `tmux new -d -s scratch`). Run the picker. Confirm both sections appear, filter by name, attach to each. Verify they're independent docked panes. (MT-009 steps 8–12, MT-012)
@@ -125,12 +125,12 @@ Explicitly **not** in Phase 3 scope. These are Phase 4 or out-of-scope entirely.
 
 ### In-repo
 
-- `specs/anvil/meta-plan.md` — Phase 3 section + "Notes from Phase 2b" inside the Phase 3 entry. Pay particular attention to the load-bearing notes about `TerminalBackend`, `TerminalView.detectShell()`, and the inline-red error pattern.
-- `specs/anvil/testing-approach.md` — testing philosophy, harness capabilities and limits.
-- `specs/anvil/manual-test-checklist.md` — MT-005 through MT-012. This is the UAT plan; AC3 and all of User Testing reference it.
-- `specs/anvil/phase-2b-completion.md` — completed deliverables this phase builds on; `PtyBackend` contract.
-- `specs/anvil/phase-2b-plugin-integration-spec.md` — interface seam documentation.
-- `specs/anvil/future-ideas-backlog.md` — FI-001 context for tmux naming.
+- `meta-plan.md` — Phase 3 section + "Notes from Phase 2b" inside the Phase 3 entry. Pay particular attention to the load-bearing notes about `TerminalBackend`, `TerminalView.detectShell()`, and the inline-red error pattern.
+- `../testing-approach.md` — testing philosophy, harness capabilities and limits.
+- `../manual-test-checklist.md` — MT-005 through MT-012. This is the UAT plan; AC3 and all of User Testing reference it.
+- `phase-2b-completion.md` — completed deliverables this phase builds on; `PtyBackend` contract.
+- `phase-2b-plugin-integration-spec.md` — interface seam documentation.
+- `../future-ideas-backlog.md` — FI-001 context for tmux naming.
 - `docs/adr/0003-pty-backend.md` — PTY backend architecture decision.
 - `CLAUDE.md` — project conventions, dependency-maintenance cadence, manual-install model.
 

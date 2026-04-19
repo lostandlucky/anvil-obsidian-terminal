@@ -33,7 +33,7 @@ Constraints, not implementation steps.
 5. **Port discovery:** binary binds to `127.0.0.1:0` (OS picks a free port) and reports the chosen port — either to stdout/stderr in a parseable line, or by writing a handshake file at a path passed via CLI. Pick whichever is simpler; document in `PROTOCOL.md`. Bound to localhost only; no auth needed inside that boundary.
 6. **Resize works:** the binary accepts `(cols, rows)` resize messages from the WebSocket and translates them to `set_size` on the PTY (which sends SIGWINCH to the child). Verifiable manually by sending a resize message and observing `tput cols` change.
 7. **Process cleanup:** when the WebSocket client disconnects, the binary kills its PTY child cleanly. When the binary itself receives SIGTERM/SIGINT, it kills the child before exiting. No orphans.
-8. **`cargo test` covers the framing/protocol layer.** At least one meaningful test on the message framing — parse a sample, round-trip, error case. Per `testing-approach.md`'s boundary rule, the Rust side gets the same testability discipline as the TS side.
+8. **`cargo test` covers the framing/protocol layer.** At least one meaningful test on the message framing — parse a sample, round-trip, error case. Per `../testing-approach.md`'s boundary rule, the Rust side gets the same testability discipline as the TS side.
 9. **`docs/adr/0003-pty-backend.md` exists, status Accepted.** Records D1 + D5 with the actual tradeoffs considered (the three-candidate matrix from the original spec). Written at the *end* of 2a, after the binary works — the ADR records a validated decision, not a speculative one. ADRs 0001 and 0002 are the format reference.
 10. **Pinned versions, committed lock file.** `Cargo.lock` checked in. Exact version pins for `portable-pty` and the chosen WebSocket crate (e.g. `tokio-tungstenite`). Mirrors Phase 0's pinning discipline for the same reasons (reproducibility, deliberate upgrades).
 
@@ -79,9 +79,9 @@ What 2a **must not** touch:
 
 Read these before starting:
 
-- `specs/anvil/meta-plan.md` — Phase 2a entry, shared constraints.
-- `specs/anvil/phase-0-harness-spec.md` and `phase-0-completion.md` — format reference for spike-style spec/completion docs. 2a is the same shape as Phase 0 (de-risk an unfamiliar component in isolation).
-- `specs/anvil/testing-approach.md` — boundary rule, RED/GREEN discipline. The Rust side inherits the same discipline.
+- `meta-plan.md` — Phase 2a entry, shared constraints.
+- `phase-0-harness-spec.md` and `phase-0-completion.md` — format reference for spike-style spec/completion docs. 2a is the same shape as Phase 0 (de-risk an unfamiliar component in isolation).
+- `../testing-approach.md` — boundary rule, RED/GREEN discipline. The Rust side inherits the same discipline.
 - Vault: `Programming/Obsidian Terminal Plugin - Technical Design Research.md` — original tradeoff analysis. The "Option C: Rust binary + portable-pty + WebSocket" section is the architectural blueprint.
 - [Termy](https://github.com/zyphrzero/termy) — prior-art Obsidian plugin using the same architecture. Read for reference patterns on the WebSocket protocol, port discovery, codesigning workarounds. **Not a dependency.**
 - [`portable-pty` crate docs](https://docs.rs/portable-pty/) — the WezTerm PTY abstraction we're building on.

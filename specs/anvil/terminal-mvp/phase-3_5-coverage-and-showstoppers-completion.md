@@ -3,7 +3,7 @@
 **Mode:** Code Tests (Mode B) — RED gate already in place from the spec
 slice (`tests/e2e/keyboard-passthrough.e2e.ts`); this phase upgraded
 `tests/e2e/plugin.e2e.ts` to a two-sided contract (AC3), implemented
-the FI-007 fix in `TerminalView`, and updated `manual-test-checklist.md`
+the FI-007 fix in `TerminalView`, and updated `../manual-test-checklist.md`
 to reflect honest test status.
 **Cycles:** 1 — clean pass on first GREEN run.
 **Status:** GREEN — all automated acceptance criteria met. AC7 (manual
@@ -53,7 +53,7 @@ are now GREEN, and `plugin.e2e.ts` gained the upgraded contract assertion).
 
 ### Documentation / specs
 
-- `specs/anvil/manual-test-checklist.md` — MT-002 updated per AC5.
+- `../manual-test-checklist.md` — MT-002 updated per AC5.
   Added a new 2026-04-16 row recording the Phase 3.5 fix landing
   (`⏳ pending user verification`). The original 2026-04-14 Phase 2b
   ✅ row was annotated to flag it as `⚠️ retroactively invalid` —
@@ -61,11 +61,11 @@ are now GREEN, and `plugin.e2e.ts` gained the upgraded contract assertion).
   Phase 2b e2e cheated by writing `\x03` directly to the backend.
   Added a one-line note to the test's "Why manual" section pointing
   at the new automated coverage.
-- `specs/anvil/phase-3_5-coverage-and-showstoppers-spec.md` — renamed
+- `phase-3_5-coverage-and-showstoppers-spec.md` — renamed
   the "Decisions for review" section to "Decision log" mid-phase
   during the audit pass (all five decisions were already `[RESOLVED]`
   before execution started, so the original heading overpromised).
-- `specs/anvil/meta-plan.md` — Phase 3.5 entry added between Phase 3
+- `meta-plan.md` — Phase 3.5 entry added between Phase 3
   and Phase 4 (mirroring how 2a/2b are represented), and a "Notes
   from Phase 3.5" section added under Phase 4.
 
@@ -96,7 +96,7 @@ hand against the pinned 1.12.7 binary + `manual-test-vault`:
    to regress if the scope rewrite has unintended side effects.
 
 If everything passes, fill the new MT-002 row's result in
-`manual-test-checklist.md`.
+`../manual-test-checklist.md`.
 
 ## Required Manual Verification
 
@@ -108,7 +108,7 @@ the user must verify them by hand before Phase 3.5 is truly done.
 |---|---|---|
 | Real-keyboard Ctrl-C interrupts `sleep 30` | Even with the WebDriver `keyboard-passthrough` test green, "real physical keypress in the actual binary" is what FI-007 was hidden by last time. The spec deliberately keeps this as a human gate. | Run `sleep 30`, press physical Ctrl-C, see prompt return. Repeat with `yes`. |
 | Real-keyboard Cmd-P opens command palette | Same — WebDriver covers it, but the spec wants a human confirmation against the pinned 1.12.7 binary. | Focus terminal, press Cmd-P, type "open terminal", verify picker opens. |
-| TUI bindings (vim Ctrl-W / Ctrl-R / Ctrl-F) | Requires real PTY + vim TUI redraw assertions — explicitly Level 3 per `testing-approach.md`. Spec says "no explicit e2e per key required." | `vim /tmp/test.txt`, exercise each binding, `:q`. |
+| TUI bindings (vim Ctrl-W / Ctrl-R / Ctrl-F) | Requires real PTY + vim TUI redraw assertions — explicitly Level 3 per `../testing-approach.md`. Spec says "no explicit e2e per key required." | `vim /tmp/test.txt`, exercise each binding, `:q`. |
 | zsh word-delete (Ctrl-W in zsh prompt) | Shell-internal line editor behavior; same Level-3 reasoning. | Type `echo foo bar baz`, press Ctrl-W, verify only "baz" deleted. |
 | Cmd-W still closes Obsidian tabs (outside terminal) | Could in principle be automated, but the spec puts it in manual smoke as a regression sanity check that the asymmetric model didn't accidentally capture Cmd-W globally. | Focus a note tab (not terminal), Cmd-W, tab closes. |
 | Phase 3 regression sweep (MT-005, MT-009, MT-012) | MT-005/009/012 graduated to e2e on 2026-04-16, but each kept a *subjective* judgment slice (visual layout, picker feel, multi-instance). Those judgments aren't codified. | Re-run those three quickly after the fix to confirm no regression in the subjective parts. |

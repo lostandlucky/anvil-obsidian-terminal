@@ -40,7 +40,7 @@ Keep the README tight. If a section bloats past an obvious skim, move detail int
 
 ## Style and Tone
 
-Match the voice of `CLAUDE.md`, `specs/anvil/meta-plan.md`, and `specs/anvil/testing-approach.md`. That voice is:
+Match the voice of `CLAUDE.md`, `specs/anvil/terminal-mvp/meta-plan.md`, and `specs/anvil/testing-approach.md`. That voice is:
 
 - Terse, direct, pragmatic. No sales language. No "seamlessly," no "effortlessly," no "robust."
 - Explain *why*, not just *what*. If a decision has a reason, say the reason.

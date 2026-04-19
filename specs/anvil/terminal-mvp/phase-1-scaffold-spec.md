@@ -72,7 +72,7 @@ After building and loading the plugin in Obsidian:
 
 ## Sources
 
-- **Meta-plan:** `specs/anvil/meta-plan.md`
+- **Meta-plan:** `meta-plan.md`
 - **Technical research:** Vault → `Programming/Obsidian Terminal Plugin - Technical Design Research.md`
 - **Obsidian ItemView API:** https://docs.obsidian.md/Reference/TypeScript+API/ItemView
 - **xterm.js docs:** https://xtermjs.org/

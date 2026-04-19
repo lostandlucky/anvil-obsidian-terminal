@@ -32,18 +32,18 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 ## Phase 0: Test Harness Spike + Dependency Audit
 
-**Goal:** De-risk the entire testing strategy before any feature code is written. Prove that `wdio-obsidian-service` can stand up on macOS arm64 against a pinned Obsidian version, and audit the package's source since it runs in the test environment with filesystem and network access. This phase exists because the e2e harness is solo-maintained community tooling and `testing-approach.md` commits to it as infrastructure — that commitment needs evidence before Phase 1 builds on it.
+**Goal:** De-risk the entire testing strategy before any feature code is written. Prove that `wdio-obsidian-service` can stand up on macOS arm64 against a pinned Obsidian version, and audit the package's source since it runs in the test environment with filesystem and network access. This phase exists because the e2e harness is solo-maintained community tooling and `../testing-approach.md` commits to it as infrastructure — that commitment needs evidence before Phase 1 builds on it.
 
 **Dependencies:** None.
 
-**Time box:** One working day for the smoke test. If it's not green by end-of-day, stop and execute the fallback documented in `testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2).
+**Time box:** One working day for the smoke test. If it's not green by end-of-day, stop and execute the fallback documented in `../testing-approach.md` (Vitest units + manual checklist, revisit e2e in Phase 2).
 
 **Scope:**
-1. **Source audit of `wdio-obsidian-service`.** Read the package's source on GitHub. Specifically check: what it downloads and from where, how it verifies the Obsidian binary (checksum? signature? bare HTTP?), what lifecycle hooks it runs in the test env, what it writes to disk outside the project directory. Record findings in `specs/anvil/phase-0-audit.md`. If anything looks actively unsafe, stop and reassess.
+1. **Source audit of `wdio-obsidian-service`.** Read the package's source on GitHub. Specifically check: what it downloads and from where, how it verifies the Obsidian binary (checksum? signature? bare HTTP?), what lifecycle hooks it runs in the test env, what it writes to disk outside the project directory. Record findings in `phase-0-audit.md`. If anything looks actively unsafe, stop and reassess.
 2. **Pin versions.** Exact pins (not semver ranges) for `wdio-obsidian-service` in `package.json` and the Obsidian test binary version in the wdio config. Commit `package-lock.json`. Wire up Dependabot or Renovate against these so future upgrades come as reviewable PRs.
 3. **Smoke-test harness.** A single trivial e2e spec: launch Obsidian via the service, assert the workspace loaded, quit cleanly. No plugin code involved yet — this tests only the harness, on this machine, on this OS.
 4. **Vitest skeleton.** `npm test`, `npm run test:unit`, `npm run test:e2e` scripts exist and route correctly. One trivial unit test to confirm Vitest runs.
-5. **Document the setup.** Brief notes in `specs/anvil/phase-0-spec.md` on how to run each test level locally and what the pinned versions are.
+5. **Document the setup.** Brief notes in `phase-0-spec.md` on how to run each test level locally and what the pinned versions are.
 
 **Success criteria:**
 - Audit notes committed, with an explicit "safe to adopt / not safe to adopt" conclusion.
@@ -86,7 +86,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 **Dependencies:** Phase 1 complete. D1–D5 already resolved (see `phase-2a-pty-server-spec.md`): custom Rust binary on `portable-pty`, kill-on-close, login shell, vault-root cwd, cargo workspace at `pty-server/`.
 
-**Spec:** `specs/anvil/phase-2a-pty-server-spec.md`
+**Spec:** `phase-2a-pty-server-spec.md`
 
 **Success criteria:**
 - `pty-server/` cargo workspace builds cleanly via `cargo build --release` on macOS arm64
@@ -112,7 +112,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 **Dependencies:** Phase 2a complete (binary, protocol, ADR-0003 all in place).
 
-**Spec:** `specs/anvil/phase-2b-plugin-integration-spec.md`
+**Spec:** `phase-2b-plugin-integration-spec.md`
 
 **Success criteria:**
 - Commands execute in a real shell with correct output
@@ -172,8 +172,8 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 **Dependencies:** Phase 3 complete. Manual test findings recorded.
 
-**Spec:** `specs/anvil/phase-3_5-coverage-and-showstoppers-spec.md`
-**Completion report:** `specs/anvil/phase-3_5-coverage-and-showstoppers-completion.md`
+**Spec:** `phase-3_5-coverage-and-showstoppers-spec.md`
+**Completion report:** `phase-3_5-coverage-and-showstoppers-completion.md`
 
 **Success criteria:**
 - Real-keyboard Ctrl-C reaches the PTY; Cmd-P opens Obsidian's command palette while the terminal is focused
@@ -190,7 +190,7 @@ Strictly sequential. Phase 2 is split into 2a (Rust PTY server spike, in isolati
 
 ## Phase 4: Settings, Polish + Distribution
 
-> **Status: SUPERSEDED — 2026-04-16.** This phase is no longer the path forward as written. Its scope and the accumulated Notes from Phase 2b / 3 / 3.5 below have been decomposed into feature-shaped backlog entries `FI-014` through `FI-020` in [`future-ideas-backlog.md`](future-ideas-backlog.md). A fresh meta-plan will rescope the remaining work around those features rather than attempting Phase 4 as a single phase. This entry stays for historical context — it shows what the original plan looked like before the dogfooding pickups grew past what one phase could carry.
+> **Status: SUPERSEDED — 2026-04-16.** This phase is no longer the path forward as written. Its scope and the accumulated Notes from Phase 2b / 3 / 3.5 below have been decomposed into feature-shaped backlog entries `FI-014` through `FI-020` in [`../future-ideas-backlog.md`](future-ideas-backlog.md). A fresh meta-plan will rescope the remaining work around those features rather than attempting Phase 4 as a single phase. This entry stays for historical context — it shows what the original plan looked like before the dogfooding pickups grew past what one phase could carry.
 
 **Goal:** Make the plugin installable and configurable. Settings UI (default shell, font size, theme, keybindings), Obsidian theme integration (light/dark), distribution packaging (GitHub release with bundled PTY backend), and edge case fixes from dogfooding.
 

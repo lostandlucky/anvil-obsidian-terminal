@@ -4,7 +4,7 @@ Custom Obsidian plugin that embeds a real system terminal — VS Code-style shel
 
 ## Entry Points
 
-- **Meta-plan:** `specs/anvil/meta-plan.md`
+- **Meta-plan:** `specs/anvil/terminal-mvp/meta-plan.md`
 - **Testing approach:** `specs/anvil/testing-approach.md` — read before writing tests in any phase
 - **Technical research:** Vault → `Programming/Obsidian Terminal Plugin - Technical Design Research.md`
 - **Task note:** Vault → `TaskNotes/Tasks/Obsidian Terminal Plugin.md`

@@ -144,7 +144,7 @@ passing (7 spec files).
 ## User testing
 
 Go play with it. These map directly to MT-005 through MT-012 in
-`manual-test-checklist.md`. Record results there with date +
+`../manual-test-checklist.md`. Record results there with date +
 subjective judgment for the UAT entries.
 
 1. **Run the "Open terminal" command with tmux off.** The picker

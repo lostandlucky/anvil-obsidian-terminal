@@ -2,11 +2,11 @@
 
 ## Context
 
-Phase 4 of `specs/anvil/meta-plan.md` was superseded on 2026-04-16, with its scope decomposed into FI-014 through FI-020 in `future-ideas-backlog.md`. The supersession note explicitly promised "a fresh meta-plan will rescope the remaining work." This is one such meta-plan — picking up a focused slice of three features that all shape what the user *sees* sitting above the PTY core: the picker modal (FI-010), the terminal pane chrome (FI-014), and the structural workspace behavior that makes the chrome possible (FI-012).
+Phase 4 of `../terminal-mvp/meta-plan.md` was superseded on 2026-04-16, with its scope decomposed into FI-014 through FI-020 in `../future-ideas-backlog.md`. The supersession note explicitly promised "a fresh meta-plan will rescope the remaining work." This is one such meta-plan — picking up a focused slice of three features that all shape what the user *sees* sitting above the PTY core: the picker modal (FI-010), the terminal pane chrome (FI-014), and the structural workspace behavior that makes the chrome possible (FI-012).
 
 The other supersession-derived features (FI-015 settings, FI-016 theming, FI-017 release, FI-018 process hygiene, FI-019 resize, FI-020 dep cadence) are explicitly out of scope here; they get their own meta-plans when their turn comes.
 
-**Filing:** Recommend a new subfolder `specs/anvil/pane-chrome-and-picker/` per the standard `_shared/artifact-organization.md` pattern, rather than the flat layout the original meta-plan used. The original `meta-plan.md` stays where it is for historical context.
+**Filing:** This meta-plan lives in its own subfolder per `_shared/artifact-organization.md`. The original meta-plan was likewise lifted into `../terminal-mvp/` on 2026-04-18 — same convention, applied retroactively.
 
 ## Scope
 

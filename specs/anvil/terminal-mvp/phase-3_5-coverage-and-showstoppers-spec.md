@@ -16,7 +16,7 @@ Obsidian's macOS bindings are mostly Cmd-anchored, so dropping the Ctrl-shield f
 
 ### D2: ~~FI-002 rootSplit children reorientation~~ → CLOSED, not in scope **[RESOLVED]**
 
-FI-002 was closed as invalid on 2026-04-16. The restore works correctly. See FI-002 entry in `future-ideas-backlog.md` for details.
+FI-002 was closed as invalid on 2026-04-16. The restore works correctly. See FI-002 entry in `../future-ideas-backlog.md` for details.
 
 ### D3: FI-010 picker header UX → OUT of scope this phase **[RESOLVED]**
 
@@ -36,7 +36,7 @@ The existing `pty-backend.e2e.ts` Ctrl-C test isn't wrong — it verifies the by
 - A real-keyboard Cmd-P inside a focused terminal MUST reach Obsidian's command palette (the `.modal-container .prompt` element MUST appear in the DOM). The existing `keyboard-passthrough.e2e.ts` "Cmd-P while terminal is focused" test is the automated gate.
 - Other Ctrl-modifier keys (Ctrl-W, Ctrl-R, Ctrl-U, vim/htop/less control bindings) MUST reach the shell's PTY inside the terminal. No explicit e2e is required for every key, but the mechanism must be consistent with the Ctrl-C path.
 - `tests/e2e/plugin.e2e.ts`'s "Ctrl-C dispatched inside the focused terminal does NOT leak to Obsidian" test MUST be upgraded to a two-sided contract: it still asserts Obsidian's document-level handler does NOT see the keydown, AND it additionally asserts that xterm's textarea DID see the keydown (or the resulting `backend.write("\x03")` call fires, or the PTY produces interruption output — any concrete signal that xterm processed the key).
-- MT-002 in `manual-test-checklist.md` MUST be honestly re-verified against the fixed build with a new 2026-04-15 row. The original Phase 2b ✅ row MUST be annotated to note that it was never actually end-to-end verified, so the test log reflects reality.
+- MT-002 in `../manual-test-checklist.md` MUST be honestly re-verified against the fixed build with a new 2026-04-15 row. The original Phase 2b ✅ row MUST be annotated to note that it was never actually end-to-end verified, so the test log reflects reality.
 - No regression in Phase 3's existing 100 unit + 28 e2e tests. `npm run test:unit` and `npm run test:e2e` MUST continue to pass everything that was passing before this phase started.
 - The fix for FI-007 MUST NOT reintroduce the Phase 2b concern that Obsidian's hotkeys would fire unexpectedly while the terminal is focused — specifically, typing `Cmd-W` (close tab) or other Cmd-modified Obsidian bindings inside a focused terminal must behave the same as it does outside the terminal (i.e., Obsidian handles it). The asymmetric model makes this a natural consequence, but it's called out as a requirement so the executing agent doesn't accidentally re-broaden the scope.
 - The executing agent MUST NOT widen the `TerminalBackend` interface.
@@ -47,7 +47,7 @@ The existing `pty-backend.e2e.ts` Ctrl-C test isn't wrong — it verifies the by
 - **AC2:** ~~FI-002 RED→GREEN test~~ — removed; FI-002 closed as invalid on 2026-04-16.
 - **AC3:** `tests/e2e/plugin.e2e.ts`'s "Ctrl-C doesn't leak to Obsidian" test is upgraded to a two-sided contract and still passes.
 - **AC4:** `npm run test:unit` passes with no regressions. `npm run test:e2e` passes with no regressions on any previously-green spec.
-- **AC5:** MT-002 in `manual-test-checklist.md` has a new row dated 2026-04-15 with the real Obsidian 1.12.7 verification result. The Phase 2b row is annotated as retroactively invalid (or at least flagged that the test was not actually exercised end-to-end until 2026-04-15).
+- **AC5:** MT-002 in `../manual-test-checklist.md` has a new row dated 2026-04-15 with the real Obsidian 1.12.7 verification result. The Phase 2b row is annotated as retroactively invalid (or at least flagged that the test was not actually exercised end-to-end until 2026-04-15).
 - **AC6:** `npm run build` compiles cleanly; the plugin loads in Obsidian without console errors after the scope rewrite.
 - **AC7:** Manual smoke check: with the fix applied, running `sleep 30` in a picker-launched terminal and pressing real Ctrl-C on the physical keyboard interrupts the sleep and returns to a prompt. Same smoke check for Cmd-P opening Obsidian's command palette. Recorded in the MT-002 row or a new MT entry.
 
@@ -83,12 +83,12 @@ Explicitly NOT in Phase 3.5 scope — all of these stay deferred to Phase 4 or l
 
 ### In-repo
 
-- `specs/anvil/meta-plan.md` — Phase 3/4 transition point. 3.5 is an interstitial not yet in the meta-plan; executing agent should add a brief Phase 3.5 entry during the completion-report slice, mirroring how Phase 2a/2b are represented.
-- `specs/anvil/phase-3-completion.md` — what Phase 3 shipped and what was explicitly flagged for downstream phases.
-- `specs/anvil/phase-3-picker-and-sessions-spec.md` — the phase-3 decisions and requirements, for context. Nothing in 3.5 re-opens these.
-- `specs/anvil/future-ideas-backlog.md` — FI-002 and FI-007 are the load-bearing entries. FI-007 has the full fix plan including the asymmetric Cmd/Ctrl model and the planned test upgrades.
-- `specs/anvil/manual-test-checklist.md` — MT-002 (to be re-verified), MT-006 (FI-002's original manual finding), MT-009/MT-012 (regression-sweep targets for step 7 above).
-- `specs/anvil/testing-approach.md` — the pure-module boundary rule and the three test levels. No changes expected this phase but worth re-reading before restructuring `TerminalView`.
+- `meta-plan.md` — Phase 3/4 transition point. 3.5 is an interstitial not yet in the meta-plan; executing agent should add a brief Phase 3.5 entry during the completion-report slice, mirroring how Phase 2a/2b are represented.
+- `phase-3-completion.md` — what Phase 3 shipped and what was explicitly flagged for downstream phases.
+- `phase-3-picker-and-sessions-spec.md` — the phase-3 decisions and requirements, for context. Nothing in 3.5 re-opens these.
+- `../future-ideas-backlog.md` — FI-002 and FI-007 are the load-bearing entries. FI-007 has the full fix plan including the asymmetric Cmd/Ctrl model and the planned test upgrades.
+- `../manual-test-checklist.md` — MT-002 (to be re-verified), MT-006 (FI-002's original manual finding), MT-009/MT-012 (regression-sweep targets for step 7 above).
+- `../testing-approach.md` — the pure-module boundary rule and the three test levels. No changes expected this phase but worth re-reading before restructuring `TerminalView`.
 - `CLAUDE.md` — conventions, dependency cadence (the Phase 4 dependency-maintenance kickoff is NOT part of 3.5 — it moves to Phase 4 start as originally planned).
 
 ### In-code (read before implementing)

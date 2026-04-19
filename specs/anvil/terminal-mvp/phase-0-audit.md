@@ -46,7 +46,7 @@ No writes to `/etc`, no sudo, no launchd, no LaunchAgents.
 
 - Dependencies are small and reputable: `lodash`, `semver`, `tar`, `7z-wasm`, `@electron/get`.
 - Active maintenance, zero open issues at audit time, 41 stars, MIT.
-- Sole-maintainer bus factor remains — that's a project-level concern, already acknowledged in `testing-approach.md` and `CLAUDE.md`.
+- Sole-maintainer bus factor remains — that's a project-level concern, already acknowledged in `../testing-approach.md` and `CLAUDE.md`.
 
 ## Risk summary
 
@@ -56,7 +56,7 @@ No writes to `/etc`, no sudo, no launchd, no LaunchAgents.
 | `xattr` strips macOS quarantine on the Obsidian binary | Low | Necessary for headless launch; same binary the user already runs every day. |
 | `~/.obsidian-cache` persists binaries outside the project | Low | Documented. Override with `OBSIDIAN_CACHE=./.obsidian-cache` in env if we want it project-local. |
 | Insider/interactive mode stores plaintext creds | N/A | We will not use Insider. |
-| Sole-maintainer bus factor | Already accepted | Documented in `testing-approach.md`. |
+| Sole-maintainer bus factor | Already accepted | Documented in `../testing-approach.md`. |
 
 ## Verdict — APPROVED by Steve (2026-04-13)
 
