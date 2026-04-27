@@ -188,3 +188,22 @@ On Windows and Linux, there's no separation. **Both Obsidian and the shell want 
 - **Font size + line-height interaction.** xterm.js's default cell metrics may need tuning for nerd-font glyphs to align cleanly — verify under Mode B tests if a font setting lands.
 
 **Origin:** Reported during 2026-04-27 overnight planning — Claude Code prompt glyphs rendered as strange characters inside the plugin's terminal.
+
+## FI-022: Bundled Symbols Nerd Font Mono — zero-config glyph fallback
+**Value we hope to achieve:** Out-of-the-box, Claude Code / starship / lazygit / any nerd-font-emitting CLI renders icons as icons inside the plugin without the user installing anything. FI-021 made it work *if* you have a nerd-font installed — this makes it work for users who don't, by treating the missing-glyph problem as a CSS fallback concern rather than a font-stack concern.
+
+**The mechanism.** Browsers (and Electron's renderer) honor `@font-face` declarations with `unicode-range`. Declaring a fallback font that only handles the PUA-icon ranges means the renderer reaches for the bundled symbol font *only* for those codepoints; ASCII, Unicode text, emoji, and CJK keep flowing through the user's primary font. xterm.js sits on top of normal CSS rendering, so this works without any xterm-side changes.
+
+**Scope:**
+- Bundle [Symbols Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/releases) in the plugin distribution. The "Symbols Only" variant is ~700KB-1MB woff2; only the icon glyphs, no Latin/CJK/etc., so it's strictly additive.
+- Add `@font-face` declarations in `src/styles.css` with `unicode-range` values covering the nerd-font codepoint blocks: Powerline `U+E0A0-E0D7`, Devicons `U+E700-E7C5`, Octicons `U+F400-F4A8` and `U+2665, U+26A1`, Font Awesome `U+F000-F2E0`, Material Design Icons `U+F0001-F1AF0`, Weather `U+E300-E3EB`, Pomicons `U+E000-E00A`, plus the others nerd-fonts cover. The canonical block list is in nerd-fonts' source.
+- Wire the font load into the plugin's `onload` (or via `styles.css` import) so it's available before any terminal mounts.
+- Update FI-021's font-family-stack default to include the bundled font's family name as the lowest-priority entry — the explicit fallback covers any edge case where `unicode-range` doesn't dispatch correctly.
+
+**Open design questions:**
+- **Artifact size.** The plugin's `main.js` is ~340KB today; adding a 700KB-1MB woff2 doubles the install footprint. Trade-off vs. better default UX. The font lives in a separate file (`fonts/SymbolsNerdFontMono.woff2`) so it doesn't bloat `main.js` itself; users who never trip a PUA codepoint never load it (browser lazy-loads on-demand).
+- **License.** Symbols Nerd Font Mono is MIT-licensed (the Nerd Fonts project releases all their fonts under permissive terms). Confirm at bundle time and include the license file alongside the woff2.
+- **woff2 vs ttf.** woff2 is ~30% smaller than ttf and Electron's renderer supports it natively. No reason to ship ttf.
+- **Loading strategy.** `font-display: block` (wait briefly for the icon font before showing tofu) vs `font-display: swap` (show tofu briefly, swap when font loads). `block` matches a terminal's expectation of stable rendering; the load is fast enough that the user shouldn't notice.
+
+**Origin:** 2026-04-27 dogfooding session — user asked "why does it just work in iTerm2?" The answer (CSS-layer symbol fallback) is what this FI implements.
