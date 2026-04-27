@@ -28,8 +28,17 @@ export interface AnvilSettings {
   themeOverrides: ThemeOverrides;
 }
 
+// Nerd Fonts v3.x renamed the canonical family from `<Name> NF` (v2 short
+// form) to `<Name> Nerd Font Mono` (v3 long form). Current brew casks
+// register only the v3 names; we list both so users on either generation
+// pick up the font without configuration. The Mono variants are critical —
+// the non-Mono "Nerd Font" families are proportional-width and would break
+// terminal grid alignment.
 const NERD_FONT_STACK =
-  "'MesloLGS NF', 'FiraCode Nerd Font', 'JetBrainsMono Nerd Font', " +
+  "'MesloLGS Nerd Font Mono', 'MesloLGS NF', " +
+  "'FiraCode Nerd Font Mono', 'FiraCode NF', " +
+  "'JetBrainsMono Nerd Font Mono', 'JetBrainsMono NF', " +
+  "'Hack Nerd Font Mono', " +
   "var(--font-monospace), Menlo, Monaco, 'Courier New', monospace";
 
 export const DEFAULT_SETTINGS: AnvilSettings = {

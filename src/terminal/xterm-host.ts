@@ -35,8 +35,14 @@ export interface XtermHostOptions {
   theme?: ITheme;
 }
 
+// Mirror of NERD_FONT_STACK in src/settings/settings.ts — duplicated so
+// xterm-host stays decoupled from the settings module. Update both when the
+// stack changes.
 const DEFAULT_FONT_FAMILY =
-  "'MesloLGS NF', 'FiraCode Nerd Font', 'JetBrainsMono Nerd Font', " +
+  "'MesloLGS Nerd Font Mono', 'MesloLGS NF', " +
+  "'FiraCode Nerd Font Mono', 'FiraCode NF', " +
+  "'JetBrainsMono Nerd Font Mono', 'JetBrainsMono NF', " +
+  "'Hack Nerd Font Mono', " +
   "var(--font-monospace), Menlo, Monaco, 'Courier New', monospace";
 
 const DEFAULT_THEME: ITheme = {

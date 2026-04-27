@@ -89,7 +89,7 @@ export function buildSettingsControlSpecs(
       name: "Font family",
       desc:
         "CSS font-family stack used by the terminal. Default prepends common nerd fonts so installed nerd fonts render glyphs without configuration.",
-      placeholder: "'MesloLGS NF', monospace",
+      placeholder: "'MesloLGS Nerd Font Mono', monospace",
       getValue: () => host.getSettings().fontFamily,
       setValue: async (value) => {
         await host.updateSettings({ fontFamily: value });
