@@ -24,6 +24,10 @@ import {
   TmuxDiscoveryResult,
 } from "./profiles/tmux-discovery";
 import { ProfilePickerModal } from "./picker/profile-picker";
+import {
+  buildTmuxAttachArgs,
+  buildTmuxNewSessionArgs,
+} from "./profiles/tmux-args";
 
 export interface TerminalLaunchSpec {
   shell: string;
@@ -143,17 +147,28 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
             return;
           case "new-tmux":
             if (tmux.tmuxPath) {
+              const newArgs = buildTmuxNewSessionArgs({
+                tmuxSessionNameFormat: this.settings.tmuxSessionNameFormat,
+                existingNames: tmux.sessions.map((s) => s.name),
+              });
               await this.openTerminalWithSpec({
                 shell: tmux.tmuxPath,
-                shellArgs: ["new-session"],
+                shellArgs: newArgs,
               });
             }
             return;
           case "tmux-session":
             if (tmux.tmuxPath) {
+              const dims = this.readActiveHostDims();
+              const attachArgs = buildTmuxAttachArgs({
+                sessionName: choice.name,
+                cols: dims.cols,
+                rows: dims.rows,
+                preserveTmuxDimensions: this.settings.preserveTmuxDimensions,
+              });
               await this.openTerminalWithSpec({
                 shell: tmux.tmuxPath,
-                shellArgs: ["attach-session", "-t", choice.name],
+                shellArgs: attachArgs,
               });
             }
             return;
@@ -161,6 +176,28 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
       },
     });
     modal.open();
+  }
+
+  /** Read the active terminal's pane size for tmux -x/-y. Falls back to
+   *  zero — buildTmuxAttachArgs treats zero/negative as "don't pass dims."
+   *  This is intentional: on first-ever attach (no tab open yet), we don't
+   *  have a host to read from, and tmux's default sizing is fine. */
+  private readActiveHostDims(): { cols: number; rows: number } {
+    const containers = this.app.workspace.getLeavesOfType(
+      TERMINAL_CONTAINER_VIEW_TYPE,
+    );
+    for (const leaf of containers) {
+      const view = leaf.view as unknown as {
+        getActiveHost?: () => {
+          terminal: { cols: number; rows: number };
+        } | null;
+      };
+      const host = view.getActiveHost?.();
+      if (host && host.terminal.cols > 0 && host.terminal.rows > 0) {
+        return { cols: host.terminal.cols, rows: host.terminal.rows };
+      }
+    }
+    return { cols: 0, rows: 0 };
   }
 
   async openTerminalWithSpec(spec: TerminalLaunchSpec): Promise<void> {
