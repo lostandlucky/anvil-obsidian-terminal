@@ -98,6 +98,15 @@ Strictly sequential. P1 sets a clean baseline (current deps, no resize jitter) b
 
 ## Phase 3: Release-readiness
 
+### Notes from Phase 2 (carried forward)
+
+- **Typings package bump (rolled from Phase 1).** `package.json` `obsidian: 1.12.3` is still 4 patches behind the test binary at 1.12.7. Phase 2 didn't trip this. If Phase 3's release work touches typed APIs not in 1.12.3 typings, bump the typings package then. The test binary in `wdio.conf.mts` doesn't change.
+- **`broadcastThemeChange` fires on `updateSettings` for font/theme-override patches.** If Phase 3 adds a "reset settings" command or similar bulk-mutation, route it through `updateSettings(...)` rather than mutating `this.settings` directly so live-running terminals refresh. The method is the only sanctioned settings mutation entry point.
+- **Fit-coalescer pattern is now load-bearing in production code.** `TerminalContainerView.refreshThemeAndFont` calls `host.fit()` directly because the coalescer is dimension-equality based (Phase 1 downstream note). Any future change that shifts xterm cell metrics without resizing the container must follow the same mutate-then-fit pattern. Don't lean on the ResizeObserver for metric-only changes.
+- **`themeOverrides.ansi` is reserved future-surface.** D5 carved out a typed `Partial<Record<string, string>>` slot for per-color ANSI overrides. Schema accepts it without breaking; UI is deferred. If a future FI ships per-color overrides, the serialized format already supports it — no migration needed.
+- **`css-change` MutationObserver fallback exists but is never exercised in the pinned binary.** It catches the case where the event isn't wired (older Obsidian, harness quirk). If Phase 3 changes `manifest.json`'s `minAppVersion`, confirm consistency with when `css-change` was introduced.
+- **Settings tab spec layer (`src/settings/settings-controls.ts`).** Phase 3's release work won't touch settings UI, but if it adds a button (reset, export), use the same spec-list pattern — keeps unit-tests and obsidian-runtime cleanly separated. `Setting()` / `ToggleComponent` are obsidian.js runtime classes, cannot be unit-tested directly.
+
 **Goal:** A real human can install this plugin from a GitHub link and use it without dev-env knowledge. The hygiene audit happens first inside the phase: open and close many terminals, force-quit Obsidian mid-session, kill `pty-server` directly, reload the plugin while shells are running, and verify nothing leaks; fix anything that does, and extend e2e + manual-test coverage to lock the new state in. Then the release artifact: codesigned and notarized `pty-server` binary, bundle layout that places `bin/pty-server` correctly after install, Cargo dependency hygiene confirmed from P1, GitHub release built and tagged locally. Publication (pushing the tag, uploading to GitHub Releases) is a deliberate manual step — the phase does not push.
 
 **Dependencies:** Phase 2 complete.
