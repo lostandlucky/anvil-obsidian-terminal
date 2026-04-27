@@ -1,11 +1,10 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import { AnvilSettings } from "./settings";
+import { buildSettingsControlSpecs, SettingsTabHost } from "./settings-controls";
 
-export interface SettingsTabHost {
-  app: App;
-  getSettings(): AnvilSettings;
-  updateSettings(patch: Partial<AnvilSettings>): Promise<void>;
-}
+// Re-export so existing imports of `SettingsTabHost` from settings-tab keep
+// working without a follow-up file shuffle.
+export type { SettingsTabHost } from "./settings-controls";
+export { buildSettingsControlSpecs } from "./settings-controls";
 
 interface PluginLike {
   app: App;
@@ -23,53 +22,53 @@ export class AnvilSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    const settings = this.host.getSettings();
+    for (const spec of buildSettingsControlSpecs(this.host)) {
+      const setting = new Setting(containerEl).setName(spec.name).setDesc(spec.desc);
 
-    new Setting(containerEl)
-      .setName("Default shell")
-      .setDesc(
-        "Resolved path of the shell launched by default (plus-icon, picker Enter on the default row). Leave empty to fall back to $SHELL.",
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("/bin/zsh")
-          .setValue(settings.defaultShell)
-          .onChange(async (value) => {
-            await this.host.updateSettings({ defaultShell: value.trim() });
-          }),
-      );
+      switch (spec.kind) {
+        case "text":
+          if (spec.multiline) {
+            setting.addTextArea((text) => {
+              if (spec.placeholder) text.setPlaceholder(spec.placeholder);
+              text
+                .setValue(spec.getValue())
+                .onChange(async (value) => {
+                  await spec.setValue(value);
+                });
+              text.inputEl.rows = 4;
+              text.inputEl.cols = 40;
+            });
+          } else {
+            setting.addText((text) => {
+              if (spec.placeholder) text.setPlaceholder(spec.placeholder);
+              text
+                .setValue(spec.getValue())
+                .onChange(async (value) => {
+                  await spec.setValue(value);
+                });
+            });
+          }
+          break;
 
-    new Setting(containerEl)
-      .setName("Additional shells")
-      .setDesc(
-        "Extra shell paths to include in the picker, one per line. Only paths that exist on disk are shown.",
-      )
-      .addTextArea((text) => {
-        text
-          .setPlaceholder("/opt/homebrew/bin/fish\n/usr/local/bin/nu")
-          .setValue(settings.userShellList.join("\n"))
-          .onChange(async (value) => {
-            const list = value
-              .split("\n")
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0);
-            await this.host.updateSettings({ userShellList: list });
+        case "toggle":
+          setting.addToggle((toggle) =>
+            toggle.setValue(spec.getValue()).onChange(async (value) => {
+              await spec.setValue(value);
+            }),
+          );
+          break;
+
+        case "dropdown":
+          setting.addDropdown((dropdown) => {
+            for (const [value, label] of Object.entries(spec.options)) {
+              dropdown.addOption(value, label);
+            }
+            dropdown.setValue(spec.getValue()).onChange(async (value) => {
+              await spec.setValue(value);
+            });
           });
-        text.inputEl.rows = 4;
-        text.inputEl.cols = 40;
-      });
-
-    new Setting(containerEl)
-      .setName("Preserve tmux session dimensions on attach")
-      .setDesc(
-        "When off (default), attaching to a tmux session resizes it to match the pane. When on, the session keeps its current dimensions.",
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(settings.preserveTmuxDimensions)
-          .onChange(async (value) => {
-            await this.host.updateSettings({ preserveTmuxDimensions: value });
-          }),
-      );
+          break;
+      }
+    }
   }
 }
