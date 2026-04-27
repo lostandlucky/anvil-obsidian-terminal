@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+// js-yaml has no bundled types; declare the narrow surface we use.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — js-yaml ships without .d.ts; we only call .load()
 import yaml from "js-yaml";
 
 /**

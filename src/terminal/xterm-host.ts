@@ -1,5 +1,6 @@
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { createFitCoalescer } from "./fit-coalescer";
 
 export interface XtermHost {
   readonly terminal: Terminal;
@@ -29,24 +30,34 @@ export function createXtermHost(): XtermHost {
   const fit = new FitAddon();
   terminal.loadAddon(fit);
 
+  // FI-019: coalesce redundant fits. mount() fits unconditionally and
+  // records dimensions; the ResizeObserver's initial-observation fire
+  // (which carries the same dimensions) is then suppressed. Genuine
+  // resizes still flow through.
+  const coalescer = createFitCoalescer();
+
   let resizeObserver: ResizeObserver | null = null;
   let mountEl: HTMLElement | null = null;
+
+  const tryFitForDimensions = (width: number, height: number): void => {
+    if (!coalescer.shouldFit({ width, height })) return;
+    try {
+      fit.fit();
+    } catch {
+      /* container may be zero-sized on first paint, or dispose mid-flight */
+    }
+  };
 
   return {
     terminal,
     mount(container) {
       mountEl = container;
       terminal.open(container);
-      try {
-        fit.fit();
-      } catch {
-        /* container may be zero-sized on first paint */
-      }
-      resizeObserver = new ResizeObserver(() => {
-        try {
-          fit.fit();
-        } catch {
-          /* ignore */
+      tryFitForDimensions(container.clientWidth, container.clientHeight);
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const rect = entry.contentRect;
+          tryFitForDimensions(rect.width, rect.height);
         }
       });
       resizeObserver.observe(container);
