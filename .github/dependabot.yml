@@ -19,3 +19,21 @@ updates:
           - "webdriverio"
           - "wdio-obsidian-service"
           - "wdio-obsidian-reporter"
+
+  # FI-020 / Phase 1 grooming D3: surface Cargo bumps for pty-server as PRs
+  # on the same cadence as npm. Group all updates so we review them as a
+  # set, mirroring the wdio-group pattern above.
+  - package-ecosystem: cargo
+    directory: /pty-server
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+    groups:
+      cargo:
+        patterns:
+          - "*"
