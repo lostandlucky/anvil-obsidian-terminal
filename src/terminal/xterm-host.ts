@@ -1,4 +1,5 @@
 import { Terminal } from "@xterm/xterm";
+import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createFitCoalescer } from "./fit-coalescer";
 
@@ -10,21 +11,47 @@ export interface XtermHost {
   onResize(handler: (size: { cols: number; rows: number }) => void): void;
   fit(): void;
   focus(): void;
+  /** Update the running terminal's theme (R10). Caller is responsible for
+   *  invoking fit() afterwards if the theme change shifts cell metrics. */
+  applyTheme(theme: ITheme): void;
+  /** Update the running terminal's fontFamily (R10). Cell metrics may shift;
+   *  caller should invoke fit() to reflow. (Per Phase 1 downstream note: the
+   *  public fit() method bypasses the coalescer's dimension-equality short
+   *  circuit.) */
+  applyFontFamily(fontFamily: string): void;
+  /** Update the running terminal's fontSize (R10). See applyFontFamily. */
+  applyFontSize(fontSize: number): void;
   dispose(): void;
 }
 
-export function createXtermHost(): XtermHost {
+export interface XtermHostOptions {
+  /** Initial fontFamily. Defaults to a nerd-font-prepended stack so glyphs
+   *  render when a nerd-font is installed (D3/FI-021). */
+  fontFamily?: string;
+  /** Initial fontSize. Defaults to 13. */
+  fontSize?: number;
+  /** Initial theme. When omitted, the terminal opens with a transparent
+   *  background and a light foreground (legacy fallback for tests/spikes). */
+  theme?: ITheme;
+}
+
+const DEFAULT_FONT_FAMILY =
+  "'MesloLGS NF', 'FiraCode Nerd Font', 'JetBrainsMono Nerd Font', " +
+  "var(--font-monospace), Menlo, Monaco, 'Courier New', monospace";
+
+const DEFAULT_THEME: ITheme = {
+  background: "#00000000",
+  foreground: "#e0e0e0",
+  cursor: "#e0e0e0",
+};
+
+export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
   const terminal = new Terminal({
     cursorBlink: true,
-    fontFamily:
-      "var(--font-monospace), Menlo, Monaco, 'Courier New', monospace",
-    fontSize: 13,
+    fontFamily: options.fontFamily ?? DEFAULT_FONT_FAMILY,
+    fontSize: options.fontSize ?? 13,
     allowProposedApi: true,
-    theme: {
-      background: "#00000000",
-      foreground: "#e0e0e0",
-      cursor: "#e0e0e0",
-    },
+    theme: options.theme ?? DEFAULT_THEME,
   });
 
   const fit = new FitAddon();
@@ -80,6 +107,15 @@ export function createXtermHost(): XtermHost {
     },
     focus() {
       terminal.focus();
+    },
+    applyTheme(theme) {
+      terminal.options.theme = theme;
+    },
+    applyFontFamily(fontFamily) {
+      terminal.options.fontFamily = fontFamily;
+    },
+    applyFontSize(fontSize) {
+      terminal.options.fontSize = fontSize;
     },
     dispose() {
       if (resizeObserver && mountEl) {
