@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",
-    "test:e2e": "npm run build && wdio run ./wdio.conf.mts"
+    "test:e2e": "npm run build && wdio run ./wdio.conf.mts",
+    "dev:launch": "scripts/dev-launch.sh"
   },
   "dependencies": {
     "@xterm/addon-fit": "0.11.0",
