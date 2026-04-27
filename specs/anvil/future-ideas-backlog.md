@@ -173,3 +173,18 @@ On Windows and Linux, there's no separation. **Both Obsidian and the shell want 
 - Audit Obsidian internal API drift since the test binary was pinned. Three undocumented APIs live in production: `rootSplit.setDirection` and `workspace.createLeafInParent` have feature-detect fallbacks; `SuggestModal.chooser.setSelectedItem` silently degrades if it ever disappears.
 
 **Origin:** `CLAUDE.md` cadence rule; Phase 3 deferral; Phase 3.5 notes; feature-consolidation pass 2026-04-16.
+
+## FI-021: Nerd-font compatibility — terminal renders glyphs from a user-chosen font
+**Value we hope to achieve:** When the user runs Claude Code (or starship, or anything that uses Powerline / nerd-font glyphs) inside the terminal, the icons render as icons — not as boxes, question marks, or "strange characters." Today `src/terminal/xterm-host.ts` likely inherits a default monospace font that lacks the Private Use Area glyphs nerd-fonts pack their icons into; agent CLIs that emit those glyphs look broken inside the plugin even though they look fine in any external terminal. Cohesion-with-the-host-app applies here too: a developer's Obsidian terminal should render their everyday CLI prompts the same way their everyday terminal does.
+
+**Scope candidates:**
+- Expose a font-family setting in FI-015's settings tab (the natural home — original Phase 4 already listed "font size" and "default font" as settings work).
+- Default the font-family to a CSS stack that prefers any installed nerd-font (`'MesloLGS NF', 'FiraCode Nerd Font', 'JetBrainsMono Nerd Font', monospace`) so users who have one installed get glyphs immediately without configuration.
+- Verify xterm.js's font-rendering pipeline handles the relevant Unicode ranges (U+E000–U+F8FF Private Use Area and the Powerline range) — typically just "use the right font," but xterm has had bugs around custom-glyph-width measurement worth a quick check.
+- Document the install-a-nerd-font path in user docs for users who don't already have one.
+
+**Open design questions:**
+- **Bundled font vs. system font.** Bundling a nerd-font in the plugin avoids the "user must install one" step but adds ~1MB to the artifact. Probably out of scope; system-font-with-fallback is the leaner ship.
+- **Font size + line-height interaction.** xterm.js's default cell metrics may need tuning for nerd-font glyphs to align cleanly — verify under Mode B tests if a font setting lands.
+
+**Origin:** Reported during 2026-04-27 overnight planning — Claude Code prompt glyphs rendered as strange characters inside the plugin's terminal.

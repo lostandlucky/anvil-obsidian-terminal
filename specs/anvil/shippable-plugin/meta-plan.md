@@ -13,8 +13,9 @@ Six features is too many for one meta-plan to track loosely; they pair naturally
 **IN:**
 - FI-019 — clean resize, no double-fit, no layout flicker
 - FI-020 — audit pinned `wdio-obsidian-service`, Obsidian test binary, set up Cargo Dependabot, re-verify three undocumented Obsidian APIs
-- FI-015 — real Obsidian Settings tab covering shell selection, additional shells, `preserveTmuxDimensions` plumbing, optional theme overrides, tmux session naming
+- FI-015 — real Obsidian Settings tab covering shell selection, additional shells, `preserveTmuxDimensions` plumbing, optional theme overrides, tmux session naming, **font family + size (closes FI-021 nerd-font support)**
 - FI-016 — terminal reads Obsidian CSS variables; theme follows light/dark/community themes live
+- FI-021 — nerd-font compatibility (folded into FI-015's font-family setting; see backlog)
 - FI-018 — process hygiene audit covering force-quit, plugin reload mid-session, Obsidian crash, `pty-server` crash, hung shells, multi-terminal abnormal exits
 - FI-017 — codesigned + notarized macOS arm64 GitHub release artifact (build + tag locally; publication is a deliberate manual step, not automated by this work)
 
@@ -73,7 +74,8 @@ Strictly sequential. P1 sets a clean baseline (current deps, no resize jitter) b
 **Success criteria:**
 - Terminal background, foreground, and ANSI palette derive from Obsidian CSS variables; default Obsidian themes (dark, light, default) all render the terminal coherently
 - Theme change event triggers a live re-render — no plugin reload required
-- A native Obsidian Settings tab is registered and exposes at minimum: default shell selection from discovered shells, custom additional-shells list, `preserveTmuxDimensions` toggle, tmux session naming format
+- A native Obsidian Settings tab is registered and exposes at minimum: default shell selection from discovered shells, custom additional-shells list, `preserveTmuxDimensions` toggle, tmux session naming format, font family (with a sensible nerd-font-preferring CSS stack default), font size
+- Nerd-font glyphs (Powerline range + U+E000–U+F8FF Private Use Area) render correctly when a nerd-font is installed and selected — this closes FI-021
 - `preserveTmuxDimensions` toggle, when enabled, actually adjusts the `tmux attach-session -x/-y` args at spawn — closing the Phase 3 gap
 - `TerminalBackend` interface unchanged; settings flow through the established `setState`/`getState` launch-spec pattern
 - Settings persist across plugin reloads via Obsidian's `saveData`/`loadData`
