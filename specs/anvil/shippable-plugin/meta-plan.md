@@ -67,6 +67,12 @@ Strictly sequential. P1 sets a clean baseline (current deps, no resize jitter) b
 
 ## Phase 2: Settings & Theming
 
+### Notes from Phase 1 (carried forward)
+
+- **Test-binary vs. typings package are separate pins.** Phase 1 D2 conflated them. Test binary lives in `wdio.conf.mts` (`browserVersion`/`installerVersion`, currently `1.12.7`); the `obsidian` typings package lives in `package.json` (`1.12.3`). Phase 2 doesn't need to act on this, but if a settings-tab API used by the new code requires types from a newer typings release, bump the typings (not the binary) and proceed.
+- **Resize coalescer is dimension-equality based.** Phase 2's theme work, if it shifts cell metrics without resizing the container (e.g., font-size change in settings), must call the public `xtermHost.fit()` directly because the coalescer won't trip. Pattern: read CSS var → apply theme → `xtermHost.fit()`.
+- **Cargo Dependabot first-PR check (small follow-up).** New `cargo` entry in `.github/dependabot.yml` should produce a PR by ~2026-05-04. If no PR appears, debug the YAML parse via Repo → Insights → Dependency graph → Dependabot.
+
 **Goal:** Users get a real Obsidian Settings tab AND the terminal visually belongs inside Obsidian. Theming ships first inside the phase: terminal reads Obsidian CSS variables at mount, maps them to xterm's theme object, re-renders on theme change. Then the Settings tab lands with shell selection, additional shells list, the `preserveTmuxDimensions` toggle finally plumbed into the spawn path, optional theme overrides exposed for advanced users, and tmux session naming format. By end of phase, "this is the user's tool" is true in a way it isn't today — both visually and behaviorally.
 
 **Dependencies:** Phase 1 complete.
