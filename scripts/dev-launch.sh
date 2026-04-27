@@ -64,6 +64,17 @@ PLUGIN_DEST="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
   echo "!! bin/pty-server copy skipped: $PLUGIN_DEST/main.js never appeared" >&2
 ) &
 
+# When launched as a child of `npm run`, npm injects npm_config_* env vars
+# into the process. Those leak through Obsidian into PTY-spawned shells, where
+# `.zshrc` integrations like nvm trip on them ("nvm is not compatible with
+# npm_config_prefix"). Scrub them so the dev terminal sees the same env a
+# normal Obsidian launch would.
+unset npm_config_prefix npm_config_globalconfig npm_config_userconfig \
+      npm_config_cache npm_config_init_module npm_config_local_prefix \
+      npm_config_node_gyp npm_command npm_lifecycle_event \
+      npm_lifecycle_script npm_package_json npm_package_name \
+      npm_package_version npm_execpath INIT_CWD
+
 exec npx obsidian-launcher launch \
   --version "$OBSIDIAN_VERSION" \
   --installer "$OBSIDIAN_VERSION" \
