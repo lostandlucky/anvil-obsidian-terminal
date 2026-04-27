@@ -21,6 +21,19 @@ A real system terminal embedded inside Obsidian, built primarily for running Cla
 - Node 20+ and `npm`
 - A throwaway Obsidian vault to test in. **Do not install into your real vault yet.**
 
+## Install (release)
+
+If you have a built release zip from GitHub Releases and want to install it without cloning the source:
+
+1. Download `anvil-obsidian-terminal-v<version>.zip` from the GitHub Releases page.
+2. Unzip into your vault's plugin folder: `unzip -o anvil-obsidian-terminal-v<version>.zip -d <vault>/.obsidian/plugins/anvil-obsidian-terminal`.
+3. Strip macOS quarantine: `xattr -d com.apple.quarantine <vault>/.obsidian/plugins/anvil-obsidian-terminal/bin/pty-server`.
+4. Enable the plugin: Settings → Community plugins → toggle **Terminal** on.
+
+Full walkthrough with troubleshooting in [docs/install.md](docs/install.md).
+
+The dev-build install path below is for contributors who want to hack on the plugin.
+
 ## From zero to a running terminal pane
 
 1. **Clone and install.**

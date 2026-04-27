@@ -177,6 +177,58 @@ Automated on 2026-04-16. Covered by `tests/e2e/multi-instance.e2e.ts` — two te
 
 ---
 
+## Phase 3 — process hygiene
+
+Manual hygiene scenarios that the e2e harness can't honestly cover (force-quit, OS-level kills, hung-shell timing, full-process crash recovery). The automatable hygiene scenarios are pinned by `tests/e2e/phase-3-hygiene.e2e.ts` (AC1/AC2/AC3) and `src/pty/pty-backend.test.ts` (AC4 dispose lifecycle); these manual rows cover the long-tail OS-level scenarios per Phase 3 D3.
+
+For each test: open at least one terminal in the plugin, take note of any PIDs you'll need to verify against, run the action, then check what happened. "What to look for" describes the expected outcome — anything else is a regression worth opening an issue or an FI for.
+
+### MT-013: Obsidian force-quit with terminals open
+**What:** Open the plugin's terminal in Obsidian. Run a long-lived command in it (e.g. `tail -f /var/log/system.log` or `sleep 600`). Note the shell PID via the active backend's `childPid()` (or `ps aux | grep pty-server` from another shell) AND the `pty-server` PID. From a separate terminal, run:
+```bash
+pkill -9 Obsidian
+```
+Confirm Obsidian disappears, then run:
+```bash
+ps -p <shell_pid> -p <pty_server_pid>
+```
+Both PIDs should be gone (or at most surviving ≤ 5 seconds — macOS `launchd` SIGKILLs orphan children of a dead parent quickly). If either survives indefinitely, that's a leak; open an FI.
+**Why manual:** A real `kill -9 Obsidian` from outside the test process can't be driven from WebdriverIO without leaving the test runner in an unrecoverable state. The OS-level reaping behavior is what we're verifying, not Obsidian's own teardown.
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
+### MT-014: OS-level kill of `pty-server` PID
+**What:** Open a terminal in the plugin. From an external shell, find the `pty-server` PID (`pgrep pty-server` or `ps aux | grep pty-server`). Run:
+```bash
+kill -9 <pty_server_pid>
+```
+Switch back to the Obsidian terminal pane. Expected outcome: the terminal surfaces a clear `[shell exited: ...]` line (yellow) within ≤ 2 seconds — not a crash, not a frozen pane, and the rest of Obsidian remains responsive. Closing and reopening a terminal afterwards must work normally.
+**Why manual:** SIGKILL of an out-of-process binary is OS-level state; the harness can drive `backend.close()` in-renderer but cannot meaningfully simulate "the binary died from outside without telling us."
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
+### MT-015: Hung shell that won't respond to SIGTERM
+**What:** Open a terminal. Run a process that ignores SIGTERM, for example:
+```bash
+trap '' TERM; sleep 600
+```
+Close the terminal pane (its X button or Cmd-W on the active xterm pane). The plugin's `PtyBackend.close()` sends SIGTERM and resolves immediately — the shell will not exit gracefully. Within ~5 seconds the operating system or Obsidian's process tree teardown should reap it; verify the PID is gone with `ps -p <pid>`. If the PID lingers indefinitely (>30s), that's a leak: the close path needs an escalation to SIGKILL on a timer. Record outcome.
+**Why manual:** Timing-sensitive interaction with the kernel's signal queue and Obsidian's process supervision; not deterministically reproducible in headless e2e.
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
+### MT-016: Obsidian crash recovery (workspace restore)
+**What:** Open one or more terminals (try with two terminals open, ideally with at least one tmux-attached). Force-quit Obsidian (`pkill -9 Obsidian` — same trigger as MT-013, but the focus is the restart). Reopen the same vault. Expected outcome: Obsidian's workspace restore reopens the terminal container view leaf, the plugin's `onOpen` runs, and a fresh terminal tab appears in the dock (its previous shell is gone — this is the documented v1 behavior, see FI-005 for "persistent session" follow-up). No errors in the console, no stuck modal, no orphan PIDs from MT-013 still lingering. If the restore tries to reattach to a dead PTY, that's a regression.
+**Why manual:** Tests crash-then-restart of the host app, which is incompatible with the test runner holding the host app open.
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
+---
+
 ## Template for new entries
 
 ```markdown
