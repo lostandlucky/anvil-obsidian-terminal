@@ -1,10 +1,15 @@
 import * as fs from "fs";
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import * as path from "path";
+import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import {
   TerminalContainerView,
   TERMINAL_CONTAINER_VIEW_TYPE,
   TerminalContainerViewLike,
 } from "./view/TerminalContainerView";
+import {
+  MISSING_BINARY_NOTICE_MESSAGE,
+  shouldShowMissingBinaryNotice,
+} from "./install/binary-check";
 import {
   createWrapAndDock,
   WrapAndDock,
@@ -69,6 +74,13 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
 
+    // R7 / AC9: surface a clear notice if bin/pty-server isn't present
+    // alongside main.js. Without this the user only finds out on first
+    // PTY spawn via a red `[pty-backend] failed to spawn` line, which
+    // doesn't point at the install path. Notice + console.error point
+    // at docs/install.md instead of crashing.
+    this.checkBundledBinary();
+
     this.registerView(
       TERMINAL_CONTAINER_VIEW_TYPE,
       (leaf) => new TerminalContainerView(leaf, this),
@@ -114,6 +126,40 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
         attributeFilter: ["class"],
       });
       this.register(() => observer.disconnect());
+    }
+  }
+
+  /**
+   * Resolve the on-disk plugin directory. Obsidian populates manifest.dir
+   * with the relative-to-vault plugin path; we join with the vault basePath
+   * to get an absolute path the fs check can use.
+   */
+  private resolvePluginDir(): string {
+    const adapter = this.app.vault.adapter as unknown as { basePath?: string };
+    const vaultRoot = adapter.basePath ?? "";
+    const dir = this.manifest.dir ?? path.join(".obsidian", "plugins", this.manifest.id);
+    return path.join(vaultRoot, dir);
+  }
+
+  /** R7 / AC9: visible failure when the bundled binary is missing. */
+  private checkBundledBinary(): void {
+    const pluginDir = this.resolvePluginDir();
+    const { show, checkedPath } = shouldShowMissingBinaryNotice({
+      pluginDir,
+      exists: (p) => {
+        try {
+          return fs.existsSync(p);
+        } catch {
+          return false;
+        }
+      },
+    });
+    if (show) {
+      new Notice(MISSING_BINARY_NOTICE_MESSAGE, 10_000);
+      // eslint-disable-next-line no-console
+      console.error(
+        `[anvil] pty-server binary missing at ${checkedPath} — see docs/install.md`,
+      );
     }
   }
 
