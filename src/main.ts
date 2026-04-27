@@ -3,6 +3,7 @@ import { Plugin, WorkspaceLeaf } from "obsidian";
 import {
   TerminalContainerView,
   TERMINAL_CONTAINER_VIEW_TYPE,
+  TerminalContainerViewLike,
 } from "./view/TerminalContainerView";
 import {
   createWrapAndDock,
@@ -51,6 +52,7 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   private lastContainerHeight: number | null = null;
   private expectingManualTab = false;
   private insertingEmptySibling = false;
+  private themeListeners = new Set<TerminalContainerViewLike>();
 
   getLastContainerHeight(): number | null {
     return this.lastContainerHeight;
@@ -88,6 +90,49 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
         void this.reconcileEmptySibling();
       }),
     );
+
+    // R2: re-derive themes when Obsidian's CSS changes (theme switch, snippet
+    // edit, community-theme apply). The 'css-change' event is documented but
+    // not always present on the typings package — feature-detect via a typed
+    // extension shape rather than `any`.
+    interface WorkspaceWithCssChange {
+      on(name: "css-change", cb: () => void): import("obsidian").EventRef;
+    }
+    try {
+      const ws = this.app.workspace as unknown as WorkspaceWithCssChange;
+      this.registerEvent(
+        ws.on("css-change", () => {
+          this.broadcastThemeChange();
+        }),
+      );
+    } catch {
+      // Fallback: MutationObserver on body class (D1). Catches the
+      // theme-light/theme-dark toggle even if css-change isn't wired up.
+      const observer = new MutationObserver(() => this.broadcastThemeChange());
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+      this.register(() => observer.disconnect());
+    }
+  }
+
+  registerThemeListener(view: TerminalContainerViewLike): void {
+    this.themeListeners.add(view);
+  }
+
+  unregisterThemeListener(view: TerminalContainerViewLike): void {
+    this.themeListeners.delete(view);
+  }
+
+  private broadcastThemeChange(): void {
+    for (const view of this.themeListeners) {
+      try {
+        view.refreshThemeAndFont();
+      } catch {
+        /* a single bad view shouldn't kill the broadcast */
+      }
+    }
   }
 
   async onunload(): Promise<void> {
@@ -103,6 +148,17 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   async updateSettings(patch: Partial<AnvilSettings>): Promise<void> {
     this.settings = normalizeSettings({ ...this.settings, ...patch });
     await this.saveData(this.settings);
+    // R10: settings that affect the running terminal (font, theme overrides)
+    // propagate to open terminals. The broadcast is unconditional — cheap
+    // (theme rederive + apply + fit), and avoids the trap of forgetting to
+    // hook a future settings field into the propagation list.
+    if (
+      patch.fontFamily !== undefined ||
+      patch.fontSize !== undefined ||
+      patch.themeOverrides !== undefined
+    ) {
+      this.broadcastThemeChange();
+    }
   }
 
   getDefaultShell(): string {

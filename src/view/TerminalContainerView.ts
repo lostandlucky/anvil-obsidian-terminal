@@ -2,8 +2,13 @@ import { ItemView, Plugin, WorkspaceLeaf } from "obsidian";
 import * as path from "path";
 import * as os from "os";
 import { createXtermHost, XtermHost } from "../terminal/xterm-host";
+import {
+  createElementCssVarReader,
+  deriveXtermTheme,
+} from "../terminal/theme";
 import { PtyBackend } from "../pty/pty-backend";
 import { TerminalBackend } from "../pty/terminal-backend";
+import { AnvilSettings } from "../settings/settings";
 
 export const TERMINAL_CONTAINER_VIEW_TYPE = "anvil-terminal-container-view";
 
@@ -22,6 +27,18 @@ interface HostPlugin extends Plugin {
   // blank tab it would otherwise create when Obsidian reconstructs the view
   // (app restart, workspace-plugin layout switch, popout).
   isExpectingManualTab?: () => boolean;
+  // Phase 2: settings + a hook so the plugin can register the view for
+  // theme-change broadcasts (R2 / R10). Both optional so the prior tests
+  // keep building.
+  getSettings?: () => AnvilSettings;
+  registerThemeListener?: (view: TerminalContainerViewLike) => void;
+  unregisterThemeListener?: (view: TerminalContainerViewLike) => void;
+}
+
+/** A narrow shape the plugin uses to broadcast theme/font changes back to
+ *  open container views without taking a hard dependency on the class. */
+export interface TerminalContainerViewLike {
+  refreshThemeAndFont(): void;
 }
 
 interface TerminalTab {
@@ -69,6 +86,7 @@ export class TerminalContainerView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.buildChrome();
+    this.plugin.registerThemeListener?.(this);
     // If the plugin initiated this open, it will call addTab(spec) itself
     // after setViewState resolves. Otherwise (app restart, workspace-plugin
     // layout switch, popout), Obsidian reconstructed us on its own and we
@@ -78,7 +96,31 @@ export class TerminalContainerView extends ItemView {
     }
   }
 
+  /** Re-derive theme + reapply font for every tab (R2 / R10). Called by the
+   *  plugin's css-change listener and after a settings update that affects
+   *  the running terminal (font, theme overrides). Calls fit() directly per
+   *  Phase 1 downstream notes — the coalescer is dimension-equality based
+   *  and will short-circuit otherwise even though cell metrics shift. */
+  refreshThemeAndFont(): void {
+    const settings = this.plugin.getSettings?.();
+    const overrides = settings?.themeOverrides ?? {
+      solidBackground: false,
+      useObsidianAccents: true,
+    };
+    for (const tab of this.tabs) {
+      const theme = deriveXtermTheme({
+        read: createElementCssVarReader(tab.paneEl),
+        overrides,
+      });
+      tab.host.applyTheme(theme);
+      if (settings?.fontFamily) tab.host.applyFontFamily(settings.fontFamily);
+      if (settings?.fontSize) tab.host.applyFontSize(settings.fontSize);
+      tab.host.fit();
+    }
+  }
+
   async onClose(): Promise<void> {
+    this.plugin.unregisterThemeListener?.(this);
     this.snapshotHeight();
     if (this.heightObserver) {
       this.heightObserver.disconnect();
@@ -236,7 +278,20 @@ export class TerminalContainerView extends ItemView {
     // yields degenerate dimensions; the subsequent fit() after switchTab
     // would SIGWINCH the shell mid-startup and leave zsh flagging every
     // prompt with PROMPT_EOL_MARK (%).
-    const host = createXtermHost();
+    const settings = this.plugin.getSettings?.();
+    const themeOverrides = settings?.themeOverrides ?? {
+      solidBackground: false,
+      useObsidianAccents: true,
+    };
+    const initialTheme = deriveXtermTheme({
+      read: createElementCssVarReader(paneEl),
+      overrides: themeOverrides,
+    });
+    const host = createXtermHost({
+      fontFamily: settings?.fontFamily,
+      fontSize: settings?.fontSize,
+      theme: initialTheme,
+    });
     host.mount(paneEl);
 
     const backend = new PtyBackend({
