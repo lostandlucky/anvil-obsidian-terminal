@@ -34,12 +34,18 @@ export interface AnvilSettings {
 // pick up the font without configuration. The Mono variants are critical —
 // the non-Mono "Nerd Font" families are proportional-width and would break
 // terminal grid alignment.
+//
+// Intentionally no `var(--font-monospace)` here. xterm.js sets this string on
+// a canvas context's font property to measure cell metrics, and the Canvas
+// API's font parser doesn't resolve CSS variables — `var(...)` would either
+// be silently dropped or, depending on browser, abort the entire fallback
+// chain. Hardcoded macOS monospace fonts cover the same ground.
 const NERD_FONT_STACK =
   "'MesloLGS Nerd Font Mono', 'MesloLGS NF', " +
   "'FiraCode Nerd Font Mono', 'FiraCode NF', " +
   "'JetBrainsMono Nerd Font Mono', 'JetBrainsMono NF', " +
   "'Hack Nerd Font Mono', " +
-  "var(--font-monospace), Menlo, Monaco, 'Courier New', monospace";
+  "Menlo, Monaco, 'Courier New', monospace";
 
 export const DEFAULT_SETTINGS: AnvilSettings = {
   defaultShell: "",

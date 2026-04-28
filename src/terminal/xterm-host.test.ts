@@ -13,10 +13,13 @@ describe("createXtermHost — Phase 2 factory params", () => {
   describe("AC8 — fontFamily round-trip", () => {
     it("default fontFamily is the nerd-font-prepended stack (D3)", () => {
       const host = createXtermHost();
-      // Default stack must put nerd fonts ahead of var(--font-monospace).
+      // Default stack puts nerd fonts ahead of a hardcoded monospace
+      // fallback. No `var(...)` — xterm sets this on a Canvas context which
+      // doesn't resolve CSS variables.
       const ff = host.terminal.options.fontFamily ?? "";
       expect(ff).toMatch(/Nerd Font|MesloLGS NF/);
-      expect(ff).toContain("var(--font-monospace)");
+      expect(ff).toMatch(/Menlo|Monaco|monospace/);
+      expect(ff).not.toContain("var(");
       host.dispose();
     });
 

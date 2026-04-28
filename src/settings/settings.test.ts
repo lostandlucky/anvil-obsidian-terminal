@@ -70,12 +70,15 @@ describe("normalizeSettings", () => {
 
   describe("fontFamily", () => {
     it("defaults to a nerd-font-prepended stack (D3)", () => {
-      // The stack must put common nerd fonts ahead of var(--font-monospace)
-      // so users with a nerd font installed get glyphs without configuring
-      // anything; users without one fall through to Obsidian's font.
+      // The stack must put common nerd fonts ahead of a hardcoded monospace
+      // fallback so users with a nerd font installed get glyphs without
+      // configuring anything; users without one fall through to a system
+      // monospace. CSS `var(...)` references are not used because xterm.js
+      // sets the family on a Canvas context, which doesn't resolve them.
       expect(DEFAULT_SETTINGS.fontFamily).toMatch(/Nerd Font|MesloLGS NF/);
       expect(DEFAULT_SETTINGS.fontFamily.indexOf("Nerd Font") >= 0 || DEFAULT_SETTINGS.fontFamily.indexOf("MesloLGS NF") >= 0).toBe(true);
-      expect(DEFAULT_SETTINGS.fontFamily).toContain("var(--font-monospace)");
+      expect(DEFAULT_SETTINGS.fontFamily).toMatch(/Menlo|Monaco|monospace/);
+      expect(DEFAULT_SETTINGS.fontFamily).not.toContain("var(");
     });
 
     it("preserves a valid fontFamily string", () => {
