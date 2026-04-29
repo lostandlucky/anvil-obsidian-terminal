@@ -3,15 +3,16 @@
 // real DOM or WebGL context (jsdom can't do either). The seam is the addon
 // factory: production passes `() => new WebglAddon()`; tests pass a stub.
 
+import type { ITerminalAddon, Terminal } from "@xterm/xterm";
+
 const ADDON_ID = "@xterm/addon-webgl";
 
-export interface WebglLoaderTerminal {
-  loadAddon(addon: WebglLoaderAddon): void;
-}
+export type WebglLoaderTerminal = Pick<Terminal, "loadAddon">;
 
-/** Minimum surface of WebglAddon we depend on. Decoupled from the real
- *  type so tests don't drag in the WebGL addon's full type tree. */
-export interface WebglLoaderAddon {
+/** Minimum surface of WebglAddon we depend on. Extends ITerminalAddon so a
+ *  real Terminal.loadAddon accepts it; adds the onContextLoss event the
+ *  WebGL addon exposes (event APIs are subscribed by being called). */
+export interface WebglLoaderAddon extends ITerminalAddon {
   onContextLoss(handler: () => void): unknown;
   dispose(): void;
 }

@@ -1,7 +1,9 @@
 import { Terminal } from "@xterm/xterm";
 import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { createFitCoalescer } from "./fit-coalescer";
+import { tryLoadWebgl } from "./webgl-loader";
 
 export interface XtermHost {
   readonly terminal: Terminal;
@@ -86,6 +88,10 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
     mount(container) {
       mountEl = container;
       terminal.open(container);
+      // Phase 1 (glyph-rendering): switch from xterm's silent DOM fallback to
+      // WebGL. Must run AFTER terminal.open(element). Init failure or
+      // context loss falls through to DOM (D2/D3) without crashing.
+      tryLoadWebgl({ terminal, factory: () => new WebglAddon() });
       tryFitForDimensions(container.clientWidth, container.clientHeight);
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
