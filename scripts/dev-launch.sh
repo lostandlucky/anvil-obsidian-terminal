@@ -75,13 +75,24 @@ PLUGIN_DEST="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
 # `.zshrc` integrations like nvm trip on them ("nvm is not compatible with
 # npm_config_prefix"). Scrub them so the dev terminal sees the same env a
 # normal Obsidian launch would.
+#
+# IMPORTANT: this scrub is defeated if we exec into anything that goes through
+# npm/npx (every npm invocation re-sets npm_config_* from .npmrc). We must
+# call obsidian-launcher's binary symlink directly. It's a plain node script,
+# so node runs it without re-injecting the npm env.
 unset npm_config_prefix npm_config_globalconfig npm_config_userconfig \
       npm_config_cache npm_config_init_module npm_config_local_prefix \
       npm_config_node_gyp npm_command npm_lifecycle_event \
       npm_lifecycle_script npm_package_json npm_package_name \
       npm_package_version npm_execpath INIT_CWD
 
-exec npx obsidian-launcher launch \
+LAUNCHER="$REPO/node_modules/.bin/obsidian-launcher"
+if [[ ! -x "$LAUNCHER" ]]; then
+  echo "dev-launch.sh: obsidian-launcher missing at $LAUNCHER (run npm install)" >&2
+  exit 1
+fi
+
+exec "$LAUNCHER" launch \
   --version "$OBSIDIAN_VERSION" \
   --installer "$OBSIDIAN_VERSION" \
   --cache "$REPO/.obsidian-cache" \
