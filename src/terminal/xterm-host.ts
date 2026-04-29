@@ -45,7 +45,8 @@ const DEFAULT_FONT_FAMILY =
   "'FiraCode Nerd Font Mono', 'FiraCode NF', " +
   "'JetBrainsMono Nerd Font Mono', 'JetBrainsMono NF', " +
   "'Hack Nerd Font Mono', " +
-  "Menlo, Monaco, 'Courier New', monospace";
+  "Menlo, Monaco, 'Courier New', " +
+  "'Symbols Nerd Font Mono', monospace";
 
 const DEFAULT_THEME: ITheme = {
   background: "#00000000",

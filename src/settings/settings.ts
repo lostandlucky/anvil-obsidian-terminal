@@ -40,12 +40,17 @@ export interface AnvilSettings {
 // API's font parser doesn't resolve CSS variables — `var(...)` would either
 // be silently dropped or, depending on browser, abort the entire fallback
 // chain. Hardcoded macOS monospace fonts cover the same ground.
+// Phase 1 glyph-rendering / R4: 'Symbols Nerd Font Mono' is the bundled
+// font (FI-022). It sits at the lowest priority before generic `monospace`
+// as a defensive fallback — `unicode-range` should dispatch correctly on
+// its own, but listing the family explicitly covers parser edge cases.
 const NERD_FONT_STACK =
   "'MesloLGS Nerd Font Mono', 'MesloLGS NF', " +
   "'FiraCode Nerd Font Mono', 'FiraCode NF', " +
   "'JetBrainsMono Nerd Font Mono', 'JetBrainsMono NF', " +
   "'Hack Nerd Font Mono', " +
-  "Menlo, Monaco, 'Courier New', monospace";
+  "Menlo, Monaco, 'Courier New', " +
+  "'Symbols Nerd Font Mono', monospace";
 
 export const DEFAULT_SETTINGS: AnvilSettings = {
   defaultShell: "",
