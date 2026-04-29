@@ -1,5 +1,5 @@
 export type ServerMessage =
-  | { type: "output"; data: string }
+  | { type: "output"; data: Uint8Array }
   | { type: "exit"; status: number | null; signal: number | null };
 
 export function encodeInput(data: string): string {
@@ -23,7 +23,14 @@ export function decodeServerMessage(raw: string): ServerMessage | null {
   if (obj.type === "output" && typeof obj.data === "string") {
     if (!isValidBase64(obj.data)) return null;
     try {
-      return { type: "output", data: Buffer.from(obj.data, "base64").toString("utf-8") };
+      // Return raw bytes — xterm.js's parser maintains UTF-8 decode state
+      // across consecutive write() calls, so a multi-byte sequence split
+      // across two PTY-output messages reassembles correctly. Calling
+      // .toString("utf-8") here would corrupt partial sequences into
+      // U+FFFD (the replacement character), which then renders as visible
+      // garbage in the terminal.
+      const buf = Buffer.from(obj.data, "base64");
+      return { type: "output", data: new Uint8Array(buf) };
     } catch {
       return null;
     }

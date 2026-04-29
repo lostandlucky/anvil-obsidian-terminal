@@ -19,7 +19,7 @@ type ExitInfo = { status: number | null; signal: number | null };
 export class PtyBackend implements TerminalBackend {
   private child: ChildProcess | null = null;
   private socket: WebSocket | null = null;
-  private dataHandlers: Array<(data: string) => void> = [];
+  private dataHandlers: Array<(data: string | Uint8Array) => void> = [];
   private exitHandlers: Array<(info: ExitInfo) => void> = [];
   private closed = false;
   private exitFired = false;
@@ -119,7 +119,7 @@ export class PtyBackend implements TerminalBackend {
     }
   }
 
-  onData(handler: (data: string) => void): void {
+  onData(handler: (data: string | Uint8Array) => void): void {
     this.dataHandlers.push(handler);
   }
 

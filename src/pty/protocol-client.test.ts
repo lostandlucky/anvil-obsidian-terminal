@@ -28,10 +28,13 @@ describe("protocol-client encode", () => {
 });
 
 describe("protocol-client decode", () => {
-  it("decodes an output frame to raw string bytes", () => {
+  it("decodes an output frame to raw bytes (Uint8Array)", () => {
     const payload = Buffer.from("hello world").toString("base64");
     const msg = decodeServerMessage(JSON.stringify({ type: "output", data: payload }));
-    expect(msg).toEqual({ type: "output", data: "hello world" });
+    expect(msg?.type).toBe("output");
+    if (msg?.type !== "output") throw new Error("expected output");
+    expect(msg.data).toBeInstanceOf(Uint8Array);
+    expect(Array.from(msg.data)).toEqual(Array.from(Buffer.from("hello world")));
   });
 
   it("decodes an exit frame with status and signal", () => {
@@ -53,5 +56,50 @@ describe("protocol-client decode", () => {
     expect(
       decodeServerMessage(JSON.stringify({ type: "output", data: "!!!not-base64!!!" })),
     ).toBeNull();
+  });
+
+  it("preserves multi-byte UTF-8 across output messages split mid-character", () => {
+    // The PTY emits bytes in arbitrary chunk sizes; a WebSocket message
+    // boundary can land inside a multi-byte UTF-8 sequence. The decoder
+    // must not corrupt those bytes — when the two messages are reassembled,
+    // the byte stream must equal the original.
+    //
+    // U+2500 (─, light horizontal box drawing) encodes as 0xE2 0x94 0x80.
+    // We split it 2/1 between two output messages.
+    //
+    // Pre-fix: decodeServerMessage applied .toString("utf-8") to each
+    // message's bytes independently. Partial sequences became U+FFFD,
+    // destroying the original character. Surfaces visibly when Claude
+    // Code emits long runs of box-drawing glyphs at fixed widths — the
+    // last few bytes of a chunk often land mid-`─`.
+    //
+    // Post-fix: each message yields raw Uint8Array bytes; xterm's parser
+    // reassembles UTF-8 across consecutive write() calls.
+    const utf8DashBytes = [0xe2, 0x94, 0x80];
+
+    const partAB64 = Buffer.from(Uint8Array.from([0xe2, 0x94])).toString("base64");
+    const partBB64 = Buffer.from(Uint8Array.from([0x80])).toString("base64");
+
+    const out1 = decodeServerMessage(
+      JSON.stringify({ type: "output", data: partAB64 }),
+    );
+    const out2 = decodeServerMessage(
+      JSON.stringify({ type: "output", data: partBB64 }),
+    );
+
+    if (out1?.type !== "output" || out2?.type !== "output") {
+      throw new Error("expected two output messages");
+    }
+
+    // Coerce either string-returning (buggy) or Uint8Array-returning (fixed)
+    // implementations to bytes for comparison.
+    const toBytes = (data: string | Uint8Array): Uint8Array =>
+      typeof data === "string" ? new TextEncoder().encode(data) : data;
+    const combined = new Uint8Array([
+      ...toBytes(out1.data),
+      ...toBytes(out2.data),
+    ]);
+
+    expect(Array.from(combined)).toEqual(utf8DashBytes);
   });
 });

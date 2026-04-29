@@ -8,7 +8,13 @@ import { tryLoadWebgl } from "./webgl-loader";
 export interface XtermHost {
   readonly terminal: Terminal;
   mount(container: HTMLElement): void;
-  write(data: string): void;
+  /** Accepts either string (test/synthetic input, status messages) or
+   *  Uint8Array (raw PTY-output bytes). xterm.js's terminal.write() handles
+   *  both, and crucially preserves UTF-8 decode state across consecutive
+   *  Uint8Array writes — multi-byte sequences split across messages
+   *  reassemble correctly. Do NOT pre-decode bytes to string at the
+   *  transport layer; that corrupts split sequences into U+FFFD. */
+  write(data: string | Uint8Array): void;
   onData(handler: (data: string) => void): void;
   onResize(handler: (size: { cols: number; rows: number }) => void): void;
   fit(): void;
@@ -109,7 +115,7 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
       });
       resizeObserver.observe(container);
     },
-    write(data) {
+    write(data: string | Uint8Array) {
       terminal.write(data);
     },
     onData(handler) {

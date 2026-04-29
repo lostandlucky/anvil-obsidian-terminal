@@ -5,7 +5,7 @@ type ExitInfo = { status: number | null; signal: number | null };
 export class MockBackend implements TerminalBackend {
   private writes: string[] = [];
   private resizes: Array<{ cols: number; rows: number }> = [];
-  private dataHandlers: Array<(data: string) => void> = [];
+  private dataHandlers: Array<(data: string | Uint8Array) => void> = [];
   private exitHandlers: Array<(info: ExitInfo) => void> = [];
   private closed = false;
 
@@ -23,7 +23,7 @@ export class MockBackend implements TerminalBackend {
     this.resizes.push({ cols, rows });
   }
 
-  onData(handler: (data: string) => void): void {
+  onData(handler: (data: string | Uint8Array) => void): void {
     this.dataHandlers.push(handler);
   }
 
@@ -35,7 +35,7 @@ export class MockBackend implements TerminalBackend {
     this.closed = true;
   }
 
-  emitData(data: string): void {
+  emitData(data: string | Uint8Array): void {
     for (const h of this.dataHandlers) h(data);
   }
 

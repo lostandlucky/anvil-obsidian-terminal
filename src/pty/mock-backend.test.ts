@@ -27,7 +27,9 @@ describe("MockBackend", () => {
   it("emitData fires onData handlers with the emitted data", () => {
     const backend = new MockBackend();
     const received: string[] = [];
-    backend.onData((d) => received.push(d));
+    backend.onData((d) => {
+      if (typeof d === "string") received.push(d);
+    });
     backend.emitData("one");
     backend.emitData("two");
     expect(received).toEqual(["one", "two"]);
@@ -70,8 +72,12 @@ describe("MockBackend — multi-instance isolation", () => {
     const b = new MockBackend();
     const aReceived: string[] = [];
     const bReceived: string[] = [];
-    a.onData((d) => aReceived.push(d));
-    b.onData((d) => bReceived.push(d));
+    a.onData((d) => {
+      if (typeof d === "string") aReceived.push(d);
+    });
+    b.onData((d) => {
+      if (typeof d === "string") bReceived.push(d);
+    });
 
     a.emitData("from-a");
 
