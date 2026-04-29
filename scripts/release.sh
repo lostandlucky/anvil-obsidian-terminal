@@ -15,7 +15,8 @@
 #   manifest.json
 #   main.js
 #   styles.css
-#   bin/pty-server     (executable bit set)
+#   bin/pty-server                       (executable bit set)
+#   fonts/SymbolsNerdFontMono.woff2      (Phase 1 glyph-rendering)
 #
 # This script never runs `git push`. Publication (pushing the tag, drafting
 # a GitHub release, uploading the zip) is a deliberate manual step Steve
@@ -103,7 +104,7 @@ STAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGE_DIR"' EXIT
 
 PLUGIN_STAGE="$STAGE_DIR/$ARTIFACT_NAME"
-mkdir -p "$PLUGIN_STAGE/bin"
+mkdir -p "$PLUGIN_STAGE/bin" "$PLUGIN_STAGE/fonts"
 
 for f in manifest.json main.js styles.css; do
   if [[ ! -f "$f" ]]; then
@@ -119,6 +120,13 @@ if [[ ! -f bin/pty-server ]]; then
 fi
 cp bin/pty-server "$PLUGIN_STAGE/bin/pty-server"
 chmod 0755 "$PLUGIN_STAGE/bin/pty-server"
+
+# Phase 1 glyph-rendering: bundled symbol font.
+if [[ ! -f fonts/SymbolsNerdFontMono.woff2 ]]; then
+  echo "release.sh: fonts/SymbolsNerdFontMono.woff2 is missing (run npm run build first)" >&2
+  exit 1
+fi
+cp fonts/SymbolsNerdFontMono.woff2 "$PLUGIN_STAGE/fonts/SymbolsNerdFontMono.woff2"
 
 # --- zip --------------------------------------------------------------------
 

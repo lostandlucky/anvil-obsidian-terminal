@@ -23,7 +23,13 @@ import * as path from "node:path";
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const RELEASE_SH = path.join(REPO_ROOT, "scripts", "release.sh");
 
-const BUILD_ARTIFACTS = ["manifest.json", "main.js", "styles.css", "bin/pty-server"];
+const BUILD_ARTIFACTS = [
+  "manifest.json",
+  "main.js",
+  "styles.css",
+  "bin/pty-server",
+  "fonts/SymbolsNerdFontMono.woff2",
+];
 
 function buildArtifactsPresent(): boolean {
   return BUILD_ARTIFACTS.every((f) =>
@@ -94,10 +100,16 @@ describe("release.sh (AC7/AC8/R5/R6)", () => {
     expect(fs.existsSync(zipPath)).toBe(true);
   });
 
-  it("zip contains exactly the four expected entries", () => {
+  it("zip contains exactly the five expected entries", () => {
     if (!buildArtifactsPresent()) return;
     expect(new Set(zipEntries)).toEqual(
-      new Set(["manifest.json", "main.js", "styles.css", "bin/pty-server"]),
+      new Set([
+        "manifest.json",
+        "main.js",
+        "styles.css",
+        "bin/pty-server",
+        "fonts/SymbolsNerdFontMono.woff2",
+      ]),
     );
   });
 

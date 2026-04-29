@@ -6,6 +6,22 @@ import * as path from "node:path";
 
 const production = process.argv.includes("production");
 
+function copyBundledFont() {
+  // Phase 1 (glyph-rendering) / D6: ship src/fonts/SymbolsNerdFontMono.woff2
+  // at the bundle-root path `fonts/SymbolsNerdFontMono.woff2`. Mirrors the
+  // bin/pty-server source-to-shipped pattern. The CSS @font-face references
+  // `url("./fonts/SymbolsNerdFontMono.woff2")` so the file must land
+  // adjacent to the bundled styles.css.
+  const src = path.resolve("src/fonts/SymbolsNerdFontMono.woff2");
+  const destDir = path.resolve("fonts");
+  const dest = path.join(destDir, "SymbolsNerdFontMono.woff2");
+  if (!existsSync(src)) {
+    throw new Error(`bundled font missing at ${src}`);
+  }
+  if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+  copyFileSync(src, dest);
+}
+
 function buildPtyServer() {
   const env = { ...process.env };
   // Cargo lives at ~/.cargo/bin on this machine and may not be on PATH.
@@ -74,12 +90,14 @@ const cssContext = await esbuild.context({
 
 if (production) {
   buildPtyServer();
+  copyBundledFont();
   await jsContext.rebuild();
   await cssContext.rebuild();
   await jsContext.dispose();
   await cssContext.dispose();
 } else {
   buildPtyServer();
+  copyBundledFont();
   await jsContext.watch();
   await cssContext.watch();
 }
