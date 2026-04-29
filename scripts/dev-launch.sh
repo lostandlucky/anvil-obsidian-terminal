@@ -47,8 +47,8 @@ echo "    Cmd-P → \"Open terminal\" to try it"
 echo ""
 
 # obsidian-launcher only copies main.js / manifest.json / styles.css into the
-# vault's plugin dir — it does not know about bin/pty-server. Mirror the wdio
-# conf's "before" hook by copying the binary into place after the launcher
+# vault's plugin dir — it does not know about bin/pty-server or fonts/. Mirror
+# the wdio conf's "before" hook by copying both into place after the launcher
 # has had a moment to install the rest. Same failure pattern recorded in the
 # phase-2b completion notes under "Bumps".
 PLUGIN_DEST="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
@@ -57,6 +57,12 @@ PLUGIN_DEST="$VAULT/.obsidian/plugins/anvil-obsidian-terminal"
     if [[ -f "$PLUGIN_DEST/main.js" ]]; then
       cp -R "$REPO/bin" "$PLUGIN_DEST/"
       echo "==> copied bin/pty-server into $PLUGIN_DEST"
+      if [[ -d "$REPO/fonts" ]]; then
+        cp -R "$REPO/fonts" "$PLUGIN_DEST/"
+        echo "==> copied fonts/ into $PLUGIN_DEST"
+      else
+        echo "!! fonts/ missing in repo root — run npm run build first" >&2
+      fi
       exit 0
     fi
     sleep 0.5
