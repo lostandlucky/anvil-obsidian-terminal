@@ -86,6 +86,11 @@ const cssContext = await esbuild.context({
   outfile: "styles.css",
   logLevel: "info",
   minify: production,
+  // The bundled woff2 lands at fonts/SymbolsNerdFontMono.woff2 via
+  // copyBundledFont(); the @font-face in src/styles.css references it
+  // by relative URL. Mark the woff2 external so esbuild leaves the URL
+  // intact rather than trying to inline / rename / hash the asset.
+  external: ["./fonts/*"],
 });
 
 if (production) {
