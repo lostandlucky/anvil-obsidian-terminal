@@ -18,3 +18,7 @@ dist/
 # Phase 3 release artifacts — produced by scripts/release.sh, never committed
 /anvil-obsidian-terminal-v*.zip
 /anvil-obsidian-terminal-v*.zip.sha256
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store
