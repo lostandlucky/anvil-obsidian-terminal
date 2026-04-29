@@ -92,10 +92,14 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
       // Phase 1 (glyph-rendering): switch from xterm's silent DOM fallback to
       // WebGL. Must run AFTER terminal.open(element). Init failure or
       // context loss falls through to DOM (D2/D3) without crashing.
-      // preserveDrawingBuffer=true keeps the rendered frame readable after
-      // compositing — required for the visual e2e's pixel-sampling
-      // (R5/AC2). The perf cost is negligible for terminal workloads.
-      tryLoadWebgl({ terminal, factory: () => new WebglAddon(true) });
+      // preserveDrawingBuffer=false (the WebglAddon default): xterm's
+      // renderer assumes the GPU back buffer is cleared between frames; if
+      // we set it true, scrolling and damage-tracked partial redraws
+      // produce trail artifacts in interactive use (multiple frames stack
+      // visibly on top of each other). The visual e2e (R5/AC2) instead
+      // captures pixels via wdio's browser.takeElementScreenshot, which
+      // works regardless of this flag.
+      tryLoadWebgl({ terminal, factory: () => new WebglAddon() });
       tryFitForDimensions(container.clientWidth, container.clientHeight);
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
