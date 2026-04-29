@@ -1,38 +1,14 @@
 @import "@xterm/xterm/css/xterm.css";
 
-/* Phase 1 (glyph-rendering) / FI-022: bundled symbol font for nerd-font
-   PUA codepoints. unicode-range scopes the load to glyphs the font
-   actually covers — anything outside this set falls through to the
-   user's normal font stack. Block list is canonical per Symbols Nerd
-   Font Mono v3.x; do NOT shorten or rebase from FI-022's earlier draft
-   (it was wrong/incomplete in 6 places). font-display: block per D4
-   (terminal output expects stable rendering; tofu-then-swap is uglier
-   than a brief wait, and the font is local-bundled so the wait is
-   short). The url() is relative to the bundled styles.css, which lives
-   alongside fonts/ in the release layout. */
-@font-face {
-  font-family: "Symbols Nerd Font Mono";
-  src: url("./fonts/SymbolsNerdFontMono.woff2") format("woff2");
-  font-display: block;
-  unicode-range:
-    /* Box Drawing                */ U+2500-259F,
-    /* IEC Power Symbols          */ U+23FB-23FE, U+2B58,
-    /* Octicons (BMP outliers)    */ U+2665, U+26A1,
-    /* Powerline Extra (sep)      */ U+2630,
-    /* Heavy Angle Brackets       */ U+276C-2771,
-    /* Pomicons                   */ U+E000-E00A,
-    /* Powerline + Powerline Extra*/ U+E0A0-E0D7,
-    /* Font Awesome Extension     */ U+E200-E2A9,
-    /* Weather                    */ U+E300-E3E3,
-    /* Seti-UI + Custom           */ U+E5FA-E6B7,
-    /* Devicons                   */ U+E700-E8EF,
-    /* Codicons                   */ U+EA60-EC1E,
-    /* Font Awesome (legacy area) */ U+ED00-EF2F,
-    /* Font Awesome (main)        */ U+F000-F2FF,
-    /* Font Logos                 */ U+F300-F381,
-    /* Octicons + Material overlap*/ U+F400-FD46,
-    /* Material Design (SMP)      */ U+F0001-F1AF0;
-}
+/* Phase 1 (glyph-rendering) / R3 / FI-022: the bundled "Symbols Nerd
+   Font Mono" is registered at plugin onload via the FontFace API
+   (src/terminal/bundled-font.ts). It used to live here as @font-face
+   with a relative url(), but Obsidian inlines plugin styles into a
+   <style> tag and that relative URL resolved against the document URL
+   (app://obsidian.md/...) instead of the plugin dir — the woff2 was
+   never actually fetched and the FontFace stayed in the "unloaded"
+   state. The FontFace API path loads bytes off disk directly via
+   fs.readFileSync, so URL resolution isn't a factor. */
 
 /* Multi-terminal container view (ADR 0006 Rank 3).
    Layout: tabstrip / content / bottom-buffer stacked vertically.

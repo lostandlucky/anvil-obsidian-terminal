@@ -34,6 +34,7 @@ import {
   buildTmuxAttachArgs,
   buildTmuxNewSessionArgs,
 } from "./profiles/tmux-args";
+import { loadBundledFont } from "./terminal/bundled-font";
 
 export interface TerminalLaunchSpec {
   shell: string;
@@ -80,6 +81,21 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
     // doesn't point at the install path. Notice + console.error point
     // at docs/install.md instead of crashing.
     this.checkBundledBinary();
+
+    // Phase 1 (glyph-rendering) / R3: register the bundled Symbols Nerd
+    // Font Mono via the FontFace API. The earlier @font-face CSS approach
+    // didn't work — Obsidian inlines plugin styles via a <style> tag and
+    // relative url() paths resolve against the document URL, not the
+    // plugin dir. Loading the bytes off disk and constructing a FontFace
+    // bypasses URL resolution entirely.
+    //
+    // Awaited (not fire-and-forget) so the font is registered before any
+    // terminal mounts. document.fonts.add can trigger a layout/atlas
+    // rebuild on any already-mounted xterm; doing it before the first
+    // terminal opens keeps that cost off the critical path of
+    // close-while-streaming and similar timing-sensitive paths
+    // (AC3 in tests/e2e/phase-3-hygiene.e2e.ts).
+    await this.registerBundledFont();
 
     this.registerView(
       TERMINAL_CONTAINER_VIEW_TYPE,
@@ -139,6 +155,32 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
     const vaultRoot = adapter.basePath ?? "";
     const dir = this.manifest.dir ?? path.join(".obsidian", "plugins", this.manifest.id);
     return path.join(vaultRoot, dir);
+  }
+
+  /** Phase 1 glyph-rendering / R3: load the bundled Symbols Nerd Font
+   *  Mono and register it via the FontFace API. */
+  private async registerBundledFont(): Promise<void> {
+    const pluginDir = this.resolvePluginDir();
+    const result = await loadBundledFont(pluginDir, {
+      readBytes: (absPath) => {
+        const buf = fs.readFileSync(absPath);
+        // Slice in case the underlying Buffer is part of a larger pool —
+        // FontFace expects a standalone ArrayBuffer.
+        return buf.buffer.slice(
+          buf.byteOffset,
+          buf.byteOffset + buf.byteLength,
+        ) as ArrayBuffer;
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fontFaceCtor: (globalThis as any).FontFace,
+      documentFonts: document.fonts,
+    });
+    if (!result.ok) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[anvil] bundled font registration failed (${result.reason ?? "unknown"}); falling back to system Nerd Fonts if installed.`,
+      );
+    }
   }
 
   /** R7 / AC9: visible failure when the bundled binary is missing. */
