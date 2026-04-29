@@ -56,13 +56,45 @@ async function focusTerminal() {
   });
 }
 
+// Renderer-agnostic — reads the active xterm buffer instead of `.xterm-rows`.
+// Required after Phase 1 (glyph-rendering) switched the plugin to the
+// WebGL renderer; the DOM-row container stays empty under WebGL.
 async function readTerminalText(): Promise<string> {
-  return browser.execute(() => {
-    const rows = document.querySelector(
-      ".anvil-terminal-container-view .xterm-rows",
-    );
-    return rows ? (rows as HTMLElement).innerText : "";
-  });
+  return browser.execute((viewType: string) => {
+    type ViewLike = {
+      getActiveHost?: () => {
+        terminal: {
+          buffer: {
+            active: {
+              length: number;
+              getLine: (
+                r: number,
+              ) => { translateToString: (trim?: boolean) => string } | undefined;
+            };
+          };
+        };
+      } | null;
+    };
+    type Ws = {
+      app: {
+        workspace: {
+          getLeavesOfType: (t: string) => Array<{ view: ViewLike }>;
+        };
+      };
+    };
+    const app = (window as unknown as Ws).app;
+    const leaves = app.workspace.getLeavesOfType(viewType);
+    if (!leaves.length) return "";
+    const host = leaves[0].view.getActiveHost?.();
+    if (!host) return "";
+    const buf = host.terminal.buffer.active;
+    const out: string[] = [];
+    for (let r = 0; r < buf.length; r += 1) {
+      const ln = buf.getLine(r);
+      if (ln) out.push(ln.translateToString(true));
+    }
+    return out.join("\n");
+  }, VIEW_TYPE);
 }
 
 async function waitForShellReady() {

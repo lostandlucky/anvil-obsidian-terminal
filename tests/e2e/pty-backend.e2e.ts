@@ -54,13 +54,41 @@ async function focusTerminal() {
   });
 }
 
+// Renderer-agnostic: reads the active xterm buffer instead of `.xterm-rows`
+// innerText. The DOM-row text is only populated by xterm's DOM renderer;
+// once Phase 1 (glyph-rendering) switched the plugin to the WebGL renderer,
+// `.xterm-rows` stayed empty and the tests below couldn't see shell output.
+// The buffer is the source of truth for what xterm received via
+// terminal.write(), regardless of which renderer paints it.
 async function readTerminalText(): Promise<string> {
-  return browser.execute(() => {
-    const rows = document.querySelector(
-      ".anvil-terminal-container-view .xterm-rows",
-    );
-    return rows ? (rows as HTMLElement).innerText : "";
-  });
+  return browser.execute((viewType: string) => {
+    type ViewLike = {
+      getActiveHost?: () => {
+        terminal: {
+          buffer: {
+            active: {
+              length: number;
+              getLine: (
+                r: number,
+              ) => { translateToString: (trim?: boolean) => string } | undefined;
+            };
+          };
+        };
+      } | null;
+    };
+    const app = (window as unknown as ObsidianWindow).app;
+    const leaves = app.workspace.getLeavesOfType(viewType);
+    if (!leaves.length) return "";
+    const host = (leaves[0].view as ViewLike).getActiveHost?.();
+    if (!host) return "";
+    const buf = host.terminal.buffer.active;
+    const out: string[] = [];
+    for (let r = 0; r < buf.length; r += 1) {
+      const ln = buf.getLine(r);
+      if (ln) out.push(ln.translateToString(true));
+    }
+    return out.join("\n");
+  }, VIEW_TYPE);
 }
 
 async function waitForShellReady() {
@@ -188,20 +216,52 @@ describe("pty-backend e2e", function () {
     const text = await readTerminalText();
     expect(text).not.toContain("\x1b[31m");
 
-    const styledSpans = await browser.execute(() => {
-      const rows = document.querySelector(
-        ".anvil-terminal-container-view .xterm-rows",
-      );
-      if (!rows) return 0;
+    // Renderer-agnostic ANSI-color check: count buffer cells whose
+    // foreground is non-default. Replaces the original DOM-span scan
+    // (which counted xterm-fg-* class spans) — the DOM renderer is no
+    // longer in play after the Phase 1 WebGL switch, but the ANSI parse
+    // still flips fg attribute bits on the buffer cells. Same invariant,
+    // renderer-independent surface.
+    const coloredCells = await browser.execute((viewType: string) => {
+      type Cell = {
+        getChars: () => string;
+        isFgDefault: () => boolean;
+      };
+      type Line = {
+        length: number;
+        translateToString: (trim?: boolean) => string;
+        getCell: (col: number) => Cell | undefined;
+      };
+      type ViewLike = {
+        getActiveHost?: () => {
+          terminal: {
+            buffer: {
+              active: { length: number; getLine: (r: number) => Line | undefined };
+            };
+          };
+        } | null;
+      };
+      const app = (window as unknown as ObsidianWindow).app;
+      const leaves = app.workspace.getLeavesOfType(viewType);
+      const host = leaves.length
+        ? (leaves[0].view as ViewLike).getActiveHost?.()
+        : null;
+      if (!host) return 0;
+      const buf = host.terminal.buffer.active;
       let styled = 0;
-      for (const span of Array.from(rows.querySelectorAll("span"))) {
-        const cls = (span as HTMLElement).className || "";
-        const style = (span as HTMLElement).getAttribute("style") || "";
-        if (/xterm-fg-/.test(cls) || /color\s*:/.test(style)) styled++;
+      for (let r = 0; r < buf.length; r += 1) {
+        const ln = buf.getLine(r);
+        if (!ln) continue;
+        if (!ln.translateToString(true).includes("REDMARK")) continue;
+        for (let col = 0; col < ln.length; col += 1) {
+          const cell = ln.getCell(col);
+          if (!cell) continue;
+          if (cell.getChars() && !cell.isFgDefault()) styled += 1;
+        }
       }
       return styled;
-    });
-    expect(styledSpans).toBeGreaterThan(0);
+    }, VIEW_TYPE);
+    expect(coloredCells).toBeGreaterThan(0);
   });
 
   it("Ctrl-C interrupts a long-running program and the shell survives", async function () {
