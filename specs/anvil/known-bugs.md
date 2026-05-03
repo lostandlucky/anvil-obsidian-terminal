@@ -35,3 +35,29 @@ The missing scenario: open terminal → save workspace.json → tear down Obsidi
 3. Test surface: extend the e2e harness with a "save workspace.json, tear down, relaunch, assert" pattern. May need a custom wdio service hook that sequences two Obsidian launches against the same persisted vault.
 
 **Origin:** Phase 1 (glyph-rendering) dogfooding, 2026-04-28. Surfaced after the FontFace API fix unblocked workspace restore from its earlier "Loading workspace..." hang.
+
+---
+
+## BUG-002: pty-server SIGTERM-vs-WS-flood race causes >1s kill latency
+
+**Symptom.** When `pty-server` is streaming heavy WebSocket output (e.g. running `yes` after the renderer has disconnected), the binary occasionally takes longer than 1 second to exit after SIGTERM is sent. The kill *does* eventually propagate — pty-server exits cleanly within a few seconds, no permanent orphan — but the latency is non-deterministic and load-sensitive.
+
+**Confirmed on:** macOS, Obsidian 1.12.7, plugin commit `d56334e` (yolo/phase-4-overnight-2026-04-27 branch). Reproduced 2026-04-29 during the v0.1.1 audit by running `tests/e2e/phase-3-hygiene.e2e.ts` AC3 ten times. Empirical pass rate at the original 1s budget: 4/5 with a clean process table, 2/5 with ~16 stale pty-servers polluting the box. Bumping the test's budget to 3s pushed pass rate to 5/5 in clean conditions; a follow-up 10x rerun is recorded in the audit log.
+
+**User impact.** Negligible. Tab close still cleans up; latency goes from "imperceptible" to "1–3 seconds" under heavy-output conditions. Below user perception except in adversarial workloads.
+
+**Root cause (suspected).** `pty-server`'s session loop (`pty-server/src/main.rs:233`) uses `tokio::select! { biased; _ = shutdown.wait() => break, ... }`, so SIGTERM should preempt promptly. But under heavy `yes` output, the loop spends most of its time inside `ws_sink.send(...).await` (line 251). After the JS-side `socket.close()`, sends to the dead peer eventually fail and break the loop — but the failure isn't instant; the underlying TCP layer drains queued bytes first. The signal-handler task DOES set `shutdown.trigger()` immediately when SIGTERM lands, but the session loop can't observe it until the in-flight `await` returns control to the executor.
+
+**Why this isn't BUG-001 / the lifecycle leak.** BUG-001 is workspace-restore re-mounting a leaf wrong. The dogfooding-observed lifecycle leak (orphaned pty-servers from Obsidian force-quit, OS shutdown, or interrupted wdio runs) is a *parent-death* problem — the JS side never sends SIGTERM at all, so pty-server has nothing to react to. BUG-002 is the *post-SIGTERM latency* problem: the JS sends the signal, pty-server gets it, but takes >1s to act on it under WS-flood conditions. The 21 historical zombies cleaned up during the v0.1.1 audit were lifecycle-leak artifacts, not BUG-002 artifacts.
+
+**Why current tests caught it.** AC3 in `phase-3-hygiene.e2e.ts` originally asserted kill within 1s. That assertion is what surfaced this — see the audit notes from 2026-04-29 (5 clean reruns: 4 pass / 1 fail; 5 reruns under zombie load: 2 pass / 3 fail). The budget was relaxed to 3s pending a structural fix.
+
+**Suggested fix paths.**
+
+1. **Surgical.** When `shutdown.trigger()` fires, also force-close the WebSocket sink from the signal handler so any in-flight `ws_sink.send().await` fails immediately rather than waiting for the underlying TCP timeout.
+2. **Sturdier.** Move WS writes off the session loop into a dedicated writer task fed by a bounded channel. The session loop becomes pure shutdown/PTY coordination and can break out instantly.
+3. **Cheap.** Add a coarser pre-check inside the send branch: `if shutdown.is_set() { break; }` immediately before each `ws_sink.send`. Doesn't help when blocked *inside* the await, but tightens the average case.
+
+Estimated cost: small Rust phase, 1-2 days. Low structural risk because the kill mechanism already works end-to-end; this is a latency tightening, not a correctness fix.
+
+**Origin:** v0.1.1 release audit, 2026-04-29.
