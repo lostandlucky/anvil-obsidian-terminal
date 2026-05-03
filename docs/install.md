@@ -13,16 +13,17 @@ If you want to build from source instead, see [`how-to/manual-install.md`](how-t
 
 ## What you're installing
 
-The release zip contains exactly four entries — verified by an automated test before each release:
+The release zip contains exactly five entries — verified by an automated test before each release:
 
 ```
-manifest.json          plugin metadata
-main.js                bundled plugin JavaScript
-styles.css             plugin CSS
-bin/pty-server         the Rust PTY backend (executable)
+manifest.json                       plugin metadata
+main.js                             bundled plugin JavaScript
+styles.css                          plugin CSS
+bin/pty-server                      the Rust PTY backend (executable)
+fonts/SymbolsNerdFontMono.woff2     bundled symbol font for terminal glyphs
 ```
 
-The plugin itself is the JS + CSS. The `bin/pty-server` binary is what actually owns each pseudoterminal. Without it, opening a terminal in the plugin will surface a clear notice pointing back at this doc.
+The plugin itself is the JS + CSS. The `bin/pty-server` binary is what actually owns each pseudoterminal — without it, opening a terminal in the plugin will surface a clear notice pointing back at this doc. The bundled woff2 ships a Nerd Font symbol set so glyphs render correctly even on machines that don't have a Nerd Font installed system-wide.
 
 ## Steps
 
@@ -68,9 +69,10 @@ manifest.json
 main.js
 styles.css
 bin/pty-server
+fonts/SymbolsNerdFontMono.woff2
 ```
 
-If your unzipper flattened `bin/` (some GUI extractors do), the plugin will not find the binary at startup. Re-extract from the command line with `unzip -o` as shown above — the directory must be preserved.
+If your unzipper flattened `bin/` or `fonts/` (some GUI extractors do), the plugin will not find the binary at startup or will fall back to system fonts for glyphs. Re-extract from the command line with `unzip -o` as shown above — the directories must be preserved.
 
 ### 4. Strip the macOS quarantine bit
 
