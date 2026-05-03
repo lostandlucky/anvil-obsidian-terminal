@@ -1,7 +1,7 @@
 {
   "id": "anvil-obsidian-terminal",
   "name": "Anvil: Obsidian Terminal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.5.0",
   "description": "Anvil — a native bottom-dock terminal for Obsidian, built for running Claude Code and other agent CLIs.",
   "author": "Steve Day",
