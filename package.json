@@ -31,7 +31,7 @@
     "obsidian": "1.12.3",
     "pngjs": "^7.0.0",
     "tsx": "4.21.0",
-    "typescript": "6.0.2",
+    "typescript": "6.0.3",
     "vitest": "4.1.4",
     "wdio-obsidian-reporter": "3.0.2",
     "wdio-obsidian-service": "3.0.2",
