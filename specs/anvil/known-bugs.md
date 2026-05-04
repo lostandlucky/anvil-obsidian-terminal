@@ -87,3 +87,30 @@ Estimated cost: small Rust phase, 1-2 days. Low structural risk because the kill
 **User impact of fix:** for fresh-vault first-open users, claude renders correctly on the first try. For everyone else, no observable change.
 
 **Origin:** v0.1.1 release audit, 2026-05-03 — surfaced in cold-install audit step (d).
+
+---
+
+## BUG-004: Orphaned `pty-server` survives `pkill -9 Obsidian` indefinitely
+
+**Symptom.** Force-kill Obsidian via `pkill -9 Obsidian` (or any path that bypasses Obsidian's normal unload — OS shutdown, app crash, killed-by-OOM, etc.). The shell child of pty-server gets reaped (pty-server's session loop sees the WebSocket close on Obsidian's death and SIGKILLs its child). But `pty-server` itself returns to its `listener.accept()` loop and stays there forever waiting for a connection that will never come. The handoff's MT-013 expectation ("≤ 5 seconds — macOS launchd SIGKILLs orphan children of a dead parent quickly") is empirically false on macOS — orphans linger indefinitely. The 21 zombie pty-server processes cleaned up at the start of the v0.1.1 audit (some over 24 hours old, from prior dogfooding sessions) are direct evidence. MT-013 reproduced cleanly during the audit on 2026-05-03.
+
+**Confirmed on:** macOS 24.6.0 (Darwin), Obsidian 1.12.7, plugin commit `aa12c54`. Reproduced 2026-05-03 in the cold-install vault: pty-server PID 45271 still alive 1+ minute after `pkill -9 Obsidian`.
+
+**User impact.** Cumulative: each force-quit / crash leaves an idle pty-server consuming a TCP listening port and ~2-4MB of RAM. Negligible per-incident. Becomes visible only over weeks of force-quit-pattern usage as a process-table accumulation. Also a contributing factor to BUG-002's "more zombies = worse SIGTERM-vs-WS-flood pass rate" finding (more loaded process table → slightly slower kill propagation when the user later closes a tab the normal way).
+
+**Root cause.** `pty-server`'s parent process is Obsidian. When Obsidian dies abruptly, the JS-side `PtyBackend.close()` chain — which is what normally sends `SIGTERM` to pty-server — never executes. pty-server has no parent-death watchdog (no Linux `PR_SET_PDEATHSIG` equivalent on macOS, and no manual kqueue / polling-on-PPID equivalent installed). Its session loop correctly handles the WebSocket close (kills the child shell, returns from `handle_client`), but the outer accept loop doesn't know that "no client will ever connect again" and waits forever.
+
+**Distinct from BUG-002.** BUG-002 is post-SIGTERM latency under WS-flood — JS sends SIGTERM, pty-server receives it, takes 1-3s to act. BUG-004 is the pre-SIGTERM gap — JS never sends SIGTERM at all, pty-server has no signal to act on.
+
+**Why current tests don't catch it.** The wdio-obsidian-service harness terminates each Obsidian instance through its own controlled shutdown path, which exercises a different cleanup chain than `pkill -9` does. AC1 in `phase-3-hygiene.e2e.ts` covers in-process plugin disable+enable, not host-process death. No e2e test simulates `kill -9` of the Obsidian process tree.
+
+**Suggested fix paths.**
+
+1. **Surgical (macOS-specific).** In pty-server's `main()`, install a kqueue watcher on the parent PID via `EVFILT_PROC | NOTE_EXIT`. When the watcher fires, `shutdown.trigger()`. ~30 lines of unsafe Rust + libc, no extra dependencies.
+2. **Cross-platform.** Periodic polling of `getppid()` — if it returns 1 (init/launchd), the original parent is gone, exit. Slower to react (poll interval) but no platform-specific code.
+3. **Inactivity-based.** pty-server exits after N minutes without an active client connection. Conceptually weaker (a long-pinned-but-quiet session would die) but simplest to implement.
+4. **Ride-along.** Pair with a future "persistent session" feature (FI-005) where the pty-server is intentionally long-lived and its lifecycle is owned by something other than Obsidian.
+
+Path 1 is the recommended fix. macOS-only is fine — the plugin is macOS-only.
+
+**Origin:** v0.1.1 release audit, 2026-05-03 — surfaced in MT-013 manual hygiene + cleanup of historical zombies during audit step (a).
