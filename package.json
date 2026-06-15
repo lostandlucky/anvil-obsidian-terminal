@@ -28,7 +28,7 @@
     "obsidian": "1.12.3",
     "tsx": "4.21.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.4",
+    "vitest": "4.1.9",
     "wdio-obsidian-reporter": "3.0.2",
     "wdio-obsidian-service": "3.0.2",
     "webdriverio": "9.27.0"
