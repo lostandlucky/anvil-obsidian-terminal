@@ -42,8 +42,8 @@ Companion to `testing-approach.md` — that doc explains *how* we test, this one
 | 2026-04-14 | 1.12.7 | phase-2b | ✅ | Session handoff confirmed pass |
 
 ### MT-004: Shell cleanup on view close
-**What:** Open terminal, note the shell PID, close the view, verify the PID is gone (`ps -p <pid>`). Repeat for several shells to rule out leaks.
-**Why manual:** Process lifecycle assertions against the host OS are out of scope for the in-Obsidian e2e harness.
+**What:** Open terminal, note the shell PID, close the view, verify the PID is gone (`ps -p <pid>`). Repeat for several shells to rule out leaks. Also do one round under heavy output: run `yes`, close the tab while it streams — the shell PID should be gone within ~1 second and the close should feel instant (BUG-002 fix, 2026-07-14; before that a 1–3s teardown tail was possible under flood).
+**Why manual:** Process lifecycle assertions against the host OS are out of scope for the in-Obsidian e2e harness. (The flood-teardown latency itself IS automated — `tests/unit/sigterm-latency.test.ts` and hygiene AC3 — this step is the real-vault perception check.)
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|

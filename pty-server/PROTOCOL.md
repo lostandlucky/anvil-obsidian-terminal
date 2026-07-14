@@ -132,6 +132,10 @@ spawned shell has exited (or the binary is shutting down).
   portable-pty `ExitStatus`. Reserved for future use; clients should accept it.
 
 After sending `exit`, the binary sends a WebSocket Close frame and tears down.
+The whole goodbye sequence (`exit` + Close) is **best-effort and time-bounded**
+(250ms): a live localhost peer always receives it, but a peer that is gone or
+has stopped reading cannot stall the binary's exit. Clients must not depend on
+receiving `exit` when they initiated the teardown themselves.
 
 ### Unknown / malformed messages
 
@@ -174,7 +178,10 @@ client                        pty-server
 ```
 
 Either side can initiate close. If the binary receives SIGINT or SIGTERM, it
-kills the child, sends `exit`, closes the WebSocket, and exits.
+kills the child, sends `exit`, closes the WebSocket, and exits — sub-second
+even while mid-flood to a dead or unresponsive peer: an in-flight WebSocket
+send is abandoned the moment shutdown triggers, and the goodbye sequence is
+time-bounded (see above).
 
 If the parent process dies without sending any signal (force-quit, crash,
 OOM-kill), a kqueue parent-death watchdog (`EVFILT_PROC | NOTE_EXIT` on the

@@ -7,8 +7,10 @@ import { dirname, join } from "node:path";
  * Counts pty-server processes left alive on the box. NOT a hard gate — a
  * non-zero count is expected during active dogfooding and after interrupted
  * test runs. Tracked over time, an upward trend points at the lifecycle-leak
- * family (parent-death cleanup gap; see BUG-001 restore path and BUG-002
- * SIGTERM latency in `specs/anvil/known-bugs.md`).
+ * family — historically BUG-001 (restore path), BUG-002 (SIGTERM latency
+ * under WS flood), and BUG-004 (parent-death cleanup gap), all fixed
+ * 2026-07-14 by the bug-sweep (see `specs/anvil/bug-sweep/`); a new upward
+ * trend after that date means a fresh leak, not those.
  *
  * Always passes. Outputs:
  *   - stderr: count + offending process lines (visible in default reporter)

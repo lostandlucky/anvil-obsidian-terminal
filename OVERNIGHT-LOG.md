@@ -57,3 +57,17 @@ Meta-plan: `specs/anvil/bug-sweep/meta-plan.md` · Branch: `autopilot/bug-sweep-
 - [RESOLVED-AUTO] AC3 budget decision (tighten 3s→1s vs keep) stays with the executor per the meta-plan's own decision rule (≥10 mixed-load runs, measured distribution in the completion report). Partial closure (amend BUG-002 instead of removing) is a sanctioned outcome.
 - [RESOLVED-AUTO] Artifact slug `phase-3-sigterm-latency-triage.md` derived from meta-plan phase title.
 - Nothing parked; no dependency or contract surface is touched by any candidate path.
+
+## Phase: Phase 3 — SIGTERM latency under WS flood (BUG-002) — exec  [GREEN]
+
+- Ran `/phase-exec Phase 3 no-audit` unattended from the on-disk skill copy (`~/.claude/skills/dev-workflow/skills/phase-exec/SKILL.md`; not registered with the Skill tool in this session). Triage recommendation C honored: no brief step, the triage's test list executed as the spec.
+- decisions:
+  - [RESOLVED-AUTO] Verification mode → Mode B (code tests), per triage: measurable latency budget, existing standalone harness pattern.
+  - [RESOLVED-AUTO] Stub-review checkpoint auto-approved per contract — the four tests transcribe the triage's test plan 1:1 (`tests/unit/sigterm-latency.test.ts`: dead-peer anchor, slow-peer variant, 12-run mixed stability protocol, clean-exit WS-level pin).
+  - [RESOLVED-AUTO] Fix-path fork (force-close sink / writer task + bounded channel / pre-send check) → race the in-flight send against the sticky `Shutdown` seam in a nested biased select, plus 250ms bound on the teardown goodbye, plus `drop(out_rx)` to unblock a reader parked in `blocking_send`. Smallest diff covering all three park scenarios; no new tasks/channels/deps; protocol byte-identical; Phase 2 constraints (seam, trigger-before-log, BestEffortStderr) untouched.
+  - [RESOLVED-AUTO] Slow-peer client shape → raw `node:net` WS client (own handshake + masked frames) because undici's WebSocket can't pause reads; undici retained for the dead-peer/clean-exit paths. Harness helpers duplicated from `parent-death-watchdog.test.ts` rather than extracted (pattern reuse; no mid-phase refactor of a green suite).
+  - [RESOLVED-AUTO] AC3 budget decision per meta-plan rule → TIGHTEN 3s → 1s: 24 mixed-load GREEN runs, max 271ms (slow-peer worst case now pinned to the 250ms goodbye bound by design). Watchdog suite's SIGTERM pin aligned 3s → 1s (triage: executor's call). Hygiene e2e re-verified green in isolation at 1s.
+  - [RESOLVED-AUTO] RED nuance logged, not chased: the undici dead-peer close fails server sends instantly (11ms even pre-fix), so the unit dead-peer anchor was green at RED; the deterministic RED carrier was the slow-peer zero-window variant (~4.9–5.1s pre-fix, 260–271ms post-fix). Anchor kept as regression pin + distribution contributor.
+- Unautomatable AC → MORNING-UAT "Manual verification" (excluded from GREEN): real-vault perceived-latency check, MT-004 heavy-output round.
+- Bookkeeping: BUG-002 removed from known-bugs.md; MT-004 gains the heavy-output close round; PROTOCOL.md documents the bounded best-effort goodbye + sub-second SIGTERM; orphan-smoke comment repointed at the bug-sweep record; no downstream notes for Phase 4 (different subsystem).
+- result: green, 1 cycle (clean pass), commits 99b8009 (fix + tests GREEN) → 118fdb9 (budgets tightened) → completion/bookkeeping commit. GREEN gate: unit 238/238 (28 files, includes the new latency suite), e2e 13/13 spec files (hygiene AC3 at the tightened 1s), `cargo test --release` 7/7, clippy clean. No flakes.
