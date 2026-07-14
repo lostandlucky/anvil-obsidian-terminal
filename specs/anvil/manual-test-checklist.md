@@ -234,6 +234,13 @@ Close the terminal pane (its X button or Cmd-W on the active xterm pane). The pl
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
 
+### MT-018: Cold-install first paint — claude welcome card lays out correctly with no resize
+**What:** Zip-install the plugin into a **fresh vault** (no saved workspace state, no saved bottom-dock pane width — the `/tmp/anvil-coldinstall-*` recipe from the release audit). Enable the plugin, open a terminal, and run `claude` **without touching any pane divider first**. Expected outcome: Claude Code's welcome card lays out cleanly on the first paint — panel borders inside the visible width, no mid-word hard-wrap (`your g\nateway's`-style breakage was BUG-003, fixed 2026-07-14 by the corrective settle-fit). Also confirm steady state stayed quiet: after the card renders, an idle terminal shouldn't reflow or flicker on its own. A brief single re-layout within the first moments of the very first open is acceptable (that's the corrective fit doing its job); repeated reflows are not.
+**Why manual:** The stale-metrics mechanism itself IS automated (`tests/e2e/bug-003-first-fit.e2e.ts` forces a mid-load mount and asserts first-reported cols equal a settled post-font-flow fit), but a true cold install — fresh vault state, zip layout, real `claude` binary, visual judgment of the card — can't be honestly reproduced inside the harness.
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
 ---
 
 ## Template for new entries
