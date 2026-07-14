@@ -25,3 +25,11 @@ Meta-plan: `specs/anvil/bug-sweep/meta-plan.md` · Branch: `autopilot/bug-sweep-
   - [RESOLVED-AUTO] No downstream notes pushed to Phases 2–4 (different subsystems; nothing actionable) — reusable sim-harness pattern recorded in the completion report instead.
 - Unautomatable ACs → MORNING-UAT "Manual verification" (excluded from GREEN): true quit-relaunch redock (MT-016), latent-hang watch, real-drag/focus-sanity checks (MT-017).
 - result: green, 1 cycle (clean pass), commits b33924d (brief) → 9e8ee06 (unit module) → 1e90794 (fix + e2e) → completion/bookkeeping commit. GREEN gate: unit 230/230, e2e 13/13 spec files (includes `bug-001-restore-redock.e2e.ts` 3/3; `fi-012-wrap-and-dock` and `container-view` regression suites green). No flakes encountered. Latent hang did not resurface.
+
+## Phase: Phase 2 — Parent-death watchdog (BUG-004) — triage
+
+- Ran `/phase-triage` unattended (skill loaded from disk at `~/.claude/skills/dev-workflow/skills/phase-triage/SKILL.md`; not registered with the Skill tool in this session — proceeded from the on-disk copy).
+- [RESOLVED-AUTO] Plan-mode entry and present-for-sign-off steps skipped per autonomy contract; triage artifact written directly.
+- Recommendation: **B — Brief + Execute** (`specs/anvil/bug-sweep/phase-2-parent-death-watchdog-triage.md`). Direction pre-approved in the meta-plan (kqueue `EVFILT_PROC | NOTE_EXIT` on parent PID, known-bugs.md fix path 1; `libc` pin exception pre-cleared — not a park item). Remaining decisions are implementation-shape: watchdog vehicle (thread vs AsyncFd task), registration-race sequencing, harness location, bounded idle-survival assertion. Next: `/phase-exec Phase 2`.
+- [RESOLVED-AUTO] Artifact slug `phase-2-parent-death-watchdog-triage.md` derived from meta-plan phase title.
+- Nothing parked; the only dependency touch (`libc`) is explicitly pre-approved in the meta-plan shared constraints.
