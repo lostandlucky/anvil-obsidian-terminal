@@ -221,8 +221,15 @@ Close the terminal pane (its X button or Cmd-W on the active xterm pane). The pl
 |---|---|---|---|---|
 
 ### MT-016: Obsidian crash recovery (workspace restore)
-**What:** Open one or more terminals (try with two terminals open, ideally with at least one tmux-attached). Force-quit Obsidian (`pkill -9 Obsidian` — same trigger as MT-013, but the focus is the restart). Reopen the same vault. Expected outcome: Obsidian's workspace restore reopens the terminal container view leaf, the plugin's `onOpen` runs, and a fresh terminal tab appears in the dock (its previous shell is gone — this is the documented v1 behavior, see FI-005 for "persistent session" follow-up). No errors in the console, no stuck modal, no orphan PIDs from MT-013 still lingering. If the restore tries to reattach to a dead PTY, that's a regression.
-**Why manual:** Tests crash-then-restart of the host app, which is incompatible with the test runner holding the host app open.
+**What:** Open one or more terminals (try with two terminals open, ideally with at least one tmux-attached). Force-quit Obsidian (`pkill -9 Obsidian` — same trigger as MT-013, but the focus is the restart). Reopen the same vault. Expected outcome: Obsidian's workspace restore comes up with the terminal **bottom-docked** — never as a sibling tab next to a note (that was BUG-001, fixed 2026-07-14 by the restore-path redock) — with its tab strip intact and a fresh shell (the previous shell is gone; documented v1 behavior, see FI-005 for "persistent session" follow-up). Focus should land somewhere sane and nothing should visibly flash into the wrong slot and need manual cleanup. No errors in the console, no stuck modal, no orphan PIDs from MT-013 still lingering. If the restore tries to reattach to a dead PTY, that's a regression. **Watch item:** if the relaunch stalls at "Loading workspace…", that's the latent hang recorded in BUG-001's history (pre-fix, sensitive to early-onload timing, no automated coverage) — capture the console and file it as a new bug.
+**Why manual:** Tests crash-then-restart of the host app, which is incompatible with the test runner holding the host app open. The in-process serialize→restore half of this scenario IS automated (`tests/e2e/bug-001-restore-redock.e2e.ts` rehydrates a captured layout via `changeLayout()` and asserts the redock); only the true process-death-and-relaunch sequence needs a human.
+
+| Date | Obsidian | Plugin | Result | Notes |
+|---|---|---|---|---|
+
+### MT-017: Restore-redock does not fight deliberate layout moves (quit-relaunch edition)
+**What:** Open a terminal (it docks to the bottom). Drag its tab out of the dock and drop it next to a note as a sibling tab, or into a popout window. Confirm it stays where you put it during the session (no snap-back — automated: AC2 of `bug-001-restore-redock.e2e.ts`). Then quit and relaunch: a main-window terminal comes back bottom-docked (v1 contract — the deliberate in-window placement does not survive a restart); a terminal parked in a **popout** should be left wherever Obsidian restores it, untouched by the redock. Also wiggle a pane-resize divider right after relaunch — the redock must never interrupt or steal focus mid-drag.
+**Why manual:** Real pointer drags are not honestly drivable in the Electron harness (testing-approach: don't drive pane moves via pointer events), and the relaunch half needs a real process restart.
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
