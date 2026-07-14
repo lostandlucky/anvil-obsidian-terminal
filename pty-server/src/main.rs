@@ -43,7 +43,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
+        .with_writer(|| BestEffortStderr)
         .with_max_level(tracing::Level::INFO)
         .init();
 
@@ -74,6 +74,8 @@ async fn main() -> Result<()> {
         shutdown_signal.trigger();
     });
 
+    spawn_parent_death_watchdog(shutdown.clone());
+
     loop {
         if shutdown.is_set() {
             tracing::info!("shutdown set before accept, exiting");
@@ -95,6 +97,151 @@ async fn main() -> Result<()> {
                 tracing::info!("client session ended");
             }
         }
+    }
+}
+
+/// Stderr writer that swallows write errors instead of surfacing them.
+///
+/// When the parent (Obsidian) dies, our piped stderr breaks. On a write
+/// error, tracing-subscriber's fallback is `eprintln!` — and `eprintln!`
+/// **panics** when stderr is gone, killing whatever thread was mid-shutdown
+/// (the parent-death watchdog before it can trigger, or the session loop
+/// before it kills the shell child). Logging is best-effort; process
+/// teardown is not. Verified empirically during BUG-004: the kqueue event
+/// fired, but the log line before `shutdown.trigger()` panicked the thread.
+struct BestEffortStderr;
+
+impl std::io::Write for BestEffortStderr {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match std::io::stderr().write(buf) {
+            Ok(n) => Ok(n),
+            // Pretend success: never let a log line kill a shutdown path.
+            Err(_) => Ok(buf.len()),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let _ = std::io::stderr().flush();
+        Ok(())
+    }
+}
+
+/// Parent-death watchdog (BUG-004): when the parent process (Obsidian) dies
+/// without ever sending SIGTERM — force-quit, crash, OOM — nothing else tells
+/// this binary to exit, and it would sit in the accept loop forever. Watch
+/// the parent PID with kqueue `EVFILT_PROC | NOTE_EXIT` and fire the sticky
+/// `Shutdown` seam when it exits; the accept loop and the session loop's
+/// biased shutdown arm (which also reaps the shell child) already handle the
+/// rest.
+///
+/// Deliberate properties:
+/// - Runs on a detached plain OS thread, NOT a tokio task: a thread blocked
+///   in `kevent()` cannot hold the tokio runtime alive or delay any existing
+///   shutdown path, and process exit reaps it.
+/// - Reacts ONLY to the parent-exit kernel event (plus install-time PPID
+///   re-checks for the registration race). No polling loop, no idle timers —
+///   a live-but-quiet session must never be reaped (user-named requirement).
+/// - On ambiguous failure the watchdog goes inactive rather than guessing:
+///   orphan risk is acceptable, killing a real session is not.
+fn spawn_parent_death_watchdog(shutdown: Arc<Shutdown>) {
+    // SAFETY: getppid() takes no arguments, touches no memory, and cannot fail.
+    let ppid = unsafe { libc::getppid() };
+    if ppid <= 1 {
+        // Reparented to launchd already — the parent died before we got here.
+        // Trigger BEFORE logging: with the parent dead our stderr pipe may
+        // already be broken, and shutdown must not depend on a log line.
+        shutdown.trigger();
+        tracing::info!("parent already dead at startup (ppid={ppid}); triggering shutdown");
+        return;
+    }
+
+    let spawned = std::thread::Builder::new()
+        .name("parent-death-watchdog".into())
+        .spawn(move || {
+            // SAFETY: kqueue() allocates a new fd owned by this thread.
+            let kq = unsafe { libc::kqueue() };
+            if kq < 0 {
+                let err = std::io::Error::last_os_error();
+                tracing::warn!(error = ?err, "kqueue() failed; parent-death watchdog inactive");
+                return;
+            }
+
+            // SAFETY: zeroed kevent is a valid initial value for the struct;
+            // all fields are set explicitly below.
+            let mut change: libc::kevent = unsafe { std::mem::zeroed() };
+            change.ident = ppid as usize;
+            change.filter = libc::EVFILT_PROC;
+            change.flags = libc::EV_ADD | libc::EV_ENABLE;
+            change.fflags = libc::NOTE_EXIT;
+
+            // Re-checks getppid() and either triggers shutdown (parent gone —
+            // reparented to launchd) or leaves the watchdog inactive (parent
+            // alive but kqueue unusable: never kill a live session on a guess).
+            let resolve_failure = |what: &str| {
+                // SAFETY: see getppid() above.
+                let now = unsafe { libc::getppid() };
+                if now != ppid {
+                    // Trigger before logging — see BestEffortStderr.
+                    shutdown.trigger();
+                    tracing::info!("parent {ppid} died during watchdog {what}; triggering shutdown");
+                } else {
+                    tracing::warn!("watchdog {what} failed with parent {ppid} still alive; watchdog inactive");
+                }
+            };
+
+            // SAFETY: `change` points to one properly initialized kevent;
+            // eventlist is empty (nevents = 0); no timeout pointer is read.
+            let rc = unsafe { libc::kevent(kq, &change, 1, std::ptr::null_mut(), 0, std::ptr::null()) };
+            if rc < 0 {
+                // Most likely ESRCH: the parent died (and was reaped) between
+                // getppid() and registration.
+                resolve_failure("registration");
+                // SAFETY: kq is a valid fd owned by this thread.
+                unsafe { libc::close(kq) };
+                return;
+            }
+
+            // Registration raced against parent death: if the parent died in
+            // the window, the watch may be bound to a reaped (or reused) PID
+            // and would never fire. getppid() is the ground truth.
+            // SAFETY: see getppid() above.
+            let now = unsafe { libc::getppid() };
+            if now != ppid {
+                // Trigger before logging — see BestEffortStderr.
+                shutdown.trigger();
+                tracing::info!("parent {ppid} died before watchdog registration; triggering shutdown");
+                // SAFETY: kq is a valid fd owned by this thread.
+                unsafe { libc::close(kq) };
+                return;
+            }
+
+            loop {
+                // SAFETY: changelist is empty (nchanges = 0); `event` is a
+                // valid out-slot for exactly one kevent; no timeout pointer.
+                let mut event: libc::kevent = unsafe { std::mem::zeroed() };
+                let n = unsafe { libc::kevent(kq, std::ptr::null(), 0, &mut event, 1, std::ptr::null()) };
+                if n < 0 {
+                    let err = std::io::Error::last_os_error();
+                    if err.raw_os_error() == Some(libc::EINTR) {
+                        continue;
+                    }
+                    resolve_failure("wait");
+                    break;
+                }
+                if n > 0 {
+                    // Trigger before logging: the parent just died, so the
+                    // stderr pipe it held is broken — see BestEffortStderr.
+                    shutdown.trigger();
+                    tracing::info!("parent {ppid} exited; triggering shutdown");
+                    break;
+                }
+            }
+            // SAFETY: kq is a valid fd owned by this thread.
+            unsafe { libc::close(kq) };
+        });
+
+    if let Err(e) = spawned {
+        tracing::warn!(error = ?e, "failed to spawn parent-death watchdog thread; watchdog inactive");
     }
 }
 
