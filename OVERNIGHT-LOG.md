@@ -96,3 +96,15 @@ Meta-plan: `specs/anvil/bug-sweep/meta-plan.md` · Branch: `autopilot/bug-sweep-
 - Unautomatable AC → MORNING-UAT "Manual verification" (excluded from GREEN): true cold-install first-paint check (new MT-018 — fresh vault, zip install, real `claude`, visual judgment of the welcome card).
 - Housekeeping note: a stray pty-server from an earlier harness run tonight (temp vault `vault-rbeuy1`, started 00:40, pre-watchdog binary) is still running under launchd — left alone per the "orphans predating the fix" convention; it dies with the next reboot or a manual kill.
 - result: green, 1 cycle (clean pass), commits d2d00f3 (brief) → 848e21c (settle-fit scheduler) → 9d50088 (fix + e2e + seam pin) → completion/bookkeeping commit. GREEN gate: unit 244/244 (29 files), e2e 14/14 spec files (new `bug-003-first-fit.e2e.ts` 2/2; glyph + theming regression suites green). No flakes. This was the last phase — the bug-sweep epic is complete (BUG-001–004 all closed).
+
+---
+
+## Run Summary
+
+- **Result:** 4 green / 0 parked / 0 failed of 4 — stoppedBy: completed
+- Phase 1 — Restore-path redock (BUG-001): GREEN, 1 cycle, commit 50af4b6
+- Phase 2 — Parent-death watchdog (BUG-004): GREEN, 1 cycle, commit 6a11b05
+- Phase 3 — SIGTERM latency under WS flood (BUG-002): GREEN, 1 cycle, commit 68714d2
+- Phase 4 — First-fit cell measurement (BUG-003): GREEN, 1 cycle, commit 0ef0d16
+- Final gate at close: unit 244/244 (29 files), e2e 14/14 spec files, cargo test 7/7, clippy clean. `known-bugs.md` has zero open entries.
+- Morning queue: 7 manual-verification items + parked Dependabot sweep (9 PRs) in `MORNING-UAT.md`. Next: `/phase-autopilot-review`.
