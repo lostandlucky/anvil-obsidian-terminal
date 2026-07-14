@@ -17,6 +17,7 @@ import {
   WrapSplit,
   WrapWorkspace,
 } from "./dock/wrap-and-dock";
+import { findStrayTerminalLeaves } from "./dock/restore-redock";
 import {
   AnvilSettings,
   DEFAULT_SETTINGS,
@@ -58,6 +59,13 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
   private lastContainerHeight: number | null = null;
   private expectingManualTab = false;
   private insertingEmptySibling = false;
+  private reconcilingRestore = false;
+  // BUG-001: every container leaf the plugin places this session. Leaves
+  // rehydrated by Obsidian (app relaunch, workspaces-plugin changeLayout)
+  // are NOT in here — that's how reconcileRestore tells "restore put it in
+  // the wrong slot" apart from "the user deliberately moved it" (in-window
+  // drags preserve leaf identity, so moved leaves stay known).
+  private placedLeaves = new WeakSet<WorkspaceLeaf>();
   private themeListeners = new Set<TerminalContainerViewLike>();
 
   getLastContainerHeight(): number | null {
@@ -116,8 +124,17 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
       this.app.workspace.on("layout-change", () => {
         this.reconcileWrap();
         void this.reconcileEmptySibling();
+        void this.reconcileRestore();
       }),
     );
+
+    // BUG-001: on a real relaunch the plugin loads BEFORE the workspace is
+    // restored, so the rehydrated (and misplaced) terminal leaf only exists
+    // once the layout is ready. reconcileRestore is gated on layoutReady, so
+    // this is the earliest moment the restore-path redock can run.
+    this.app.workspace.onLayoutReady(() => {
+      void this.reconcileRestore();
+    });
 
     // R2: re-derive themes when Obsidian's CSS changes (theme switch, snippet
     // edit, community-theme apply). The 'css-change' event is documented but
@@ -371,6 +388,9 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
     this.wrapHandle = wrapAndDock.openWithWrap();
 
     const leaf = this.allocateContainerLeaf(workspace, rootSplit);
+    // BUG-001: mark the leaf as plugin-placed so reconcileRestore never
+    // touches it — even after the user deliberately drags it elsewhere.
+    this.placedLeaves.add(leaf);
 
     // Flag the view's onOpen that the plugin will supply the first tab's
     // spec itself via addTab(). Without this, onOpen creates a blank default
@@ -414,6 +434,62 @@ export default class TerminalPlugin extends Plugin implements SettingsTabHost {
       "[anvil] workspace.createLeafInParent unavailable; degrading to getLeaf('split','horizontal') — container isolation reduced",
     );
     return this.app.workspace.getLeaf("split", "horizontal");
+  }
+
+  /**
+   * BUG-001: workspace restore mounts the terminal leaf wherever the
+   * serialized layout says it was — but the wrap-and-dock structure does
+   * not survive serialize→restore (empirically: rootSplit comes back
+   * "vertical", or the leaf lands as a sibling tab next to a note). Detect
+   * leaves that Obsidian rehydrated (not placed by this plugin instance),
+   * detach them, and re-run the normal open path so the terminal comes back
+   * bottom-docked with a working shell (fresh shell is v1 behavior, FI-005).
+   *
+   * Guards:
+   * - `layoutReady` — never fire mid-restore.
+   * - reentrancy flag — detach/open below re-trigger layout-change.
+   * - strays are marked placed BEFORE redock so a failed redock can never
+   *   loop; user-moved leaves keep their identity and are never strays.
+   * - only main-window leaves are touched — a terminal deliberately parked
+   *   in a popout or sidebar is left where the user put it.
+   */
+  private async reconcileRestore(): Promise<void> {
+    if (this.reconcilingRestore) return;
+    if (!this.app.workspace.layoutReady) return;
+    const leaves = this.app.workspace.getLeavesOfType(
+      TERMINAL_CONTAINER_VIEW_TYPE,
+    );
+    if (leaves.length === 0) return;
+
+    const workspace = this.app.workspace as unknown as WorkspaceLike;
+    const strays = findStrayTerminalLeaves<WorkspaceLeaf>({
+      leaves,
+      mainRoot: workspace.rootSplit,
+      getRoot: (leaf) => leaf.getRoot(),
+      isPluginPlaced: (leaf) => this.placedLeaves.has(leaf),
+    });
+    if (strays.length === 0) return;
+
+    this.reconcilingRestore = true;
+    try {
+      for (const leaf of strays) {
+        this.placedLeaves.add(leaf);
+        leaf.detach();
+      }
+      // Re-open through the normal path only if no docked container
+      // survived — if one did, the strays' tabs are simply gone and the
+      // surviving container already owns the bottom slot.
+      const remaining = this.app.workspace.getLeavesOfType(
+        TERMINAL_CONTAINER_VIEW_TYPE,
+      );
+      if (remaining.length === 0) {
+        await this.openDefaultTerminal();
+      }
+    } catch {
+      /* best-effort — no crash on undocumented layout-surface failure */
+    } finally {
+      this.reconcilingRestore = false;
+    }
   }
 
   private reconcileWrap(): void {
