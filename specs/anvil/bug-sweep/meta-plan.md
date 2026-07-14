@@ -67,6 +67,12 @@ Fixes the four confirmed defects in [`../known-bugs.md`](../known-bugs.md). Each
 
 **Risk flags.** tokio select/sink semantics under backpressure are subtle; flake sensitivity to host load means the budget decision needs a measured basis, not one lucky run.
 
+**Notes from Phase 2 (landed 2026-07-14).**
+- The `Shutdown` seam is unchanged — the parent-death watchdog is just a new trigger *source* (detached kevent thread in `main.rs`); rework the session loop freely, but keep the seam.
+- Load-bearing discovery: once the parent dies, the piped stderr is broken, and tracing-subscriber's write-error fallback (`eprintln!`) **panics the logging thread**. The subscriber now writes via `BestEffortStderr` (swallows write errors), and all shutdown paths trigger BEFORE logging. Any Phase 3 teardown rework must preserve both properties — a log line must never be able to kill the exit path.
+- The session loop's `ws_sink.send().await` stall (BUG-002's target) was deliberately untouched.
+- Reusable harness: `tests/unit/parent-death-watchdog.test.ts` builds the release binary via cargo in `beforeAll` and speaks the WS protocol from vitest with Node's global `WebSocket` — AC3-style repeated latency runs can reuse this pattern without wdio.
+
 ## Phase 4 — First-fit cell measurement (BUG-003)
 
 **Goal.** The very first terminal open in a fresh vault reports correct cols/rows on first paint, so full-width TUIs (claude's welcome card) lay out correctly with no mid-word wrap and no user-resize needed to self-heal. No added SIGWINCH churn on the steady-state path (the fit-coalescer already dedupes identical measurements).

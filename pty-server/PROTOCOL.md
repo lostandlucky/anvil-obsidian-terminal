@@ -176,6 +176,12 @@ client                        pty-server
 Either side can initiate close. If the binary receives SIGINT or SIGTERM, it
 kills the child, sends `exit`, closes the WebSocket, and exits.
 
+If the parent process dies without sending any signal (force-quit, crash,
+OOM-kill), a kqueue parent-death watchdog (`EVFILT_PROC | NOTE_EXIT` on the
+parent PID) triggers the same shutdown path — the binary never outlives its
+parent. It never exits merely because a live session is quiet: there is no
+timeout- or inactivity-based reaping of any kind.
+
 ## Trying it by hand
 
 ### With `wscat` (recommended)

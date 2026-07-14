@@ -192,8 +192,8 @@ Confirm Obsidian disappears, then run:
 ```bash
 ps -p <shell_pid> -p <pty_server_pid>
 ```
-Both PIDs should be gone (or at most surviving ≤ 5 seconds — macOS `launchd` SIGKILLs orphan children of a dead parent quickly). If either survives indefinitely, that's a leak; open an FI.
-**Why manual:** A real `kill -9 Obsidian` from outside the test process can't be driven from WebdriverIO without leaving the test runner in an unrecoverable state. The OS-level reaping behavior is what we're verifying, not Obsidian's own teardown.
+Both PIDs should be gone within ~5 seconds. This is pty-server's own parent-death watchdog at work (kqueue `EVFILT_PROC | NOTE_EXIT` on the parent PID, added 2026-07-14 for BUG-004) — macOS `launchd` does NOT reap orphans of a dead parent; the earlier "launchd SIGKILLs them quickly" expectation recorded here was empirically false, and orphans lingered indefinitely before the watchdog existed. If either PID survives longer than a few seconds, that's a watchdog regression; open a bug.
+**Why manual:** A real `kill -9 Obsidian` from outside the test process can't be driven from WebdriverIO without leaving the test runner in an unrecoverable state. The wrapper-parent half of this scenario IS automated (`tests/unit/parent-death-watchdog.test.ts` kills pty-server's parent process and asserts server + shell exit); only the true Obsidian-process-tree death needs a human.
 
 | Date | Obsidian | Plugin | Result | Notes |
 |---|---|---|---|---|
