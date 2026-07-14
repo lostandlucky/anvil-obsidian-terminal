@@ -47,3 +47,13 @@ Meta-plan: `specs/anvil/bug-sweep/meta-plan.md` · Branch: `autopilot/bug-sweep-
 - Unautomatable ACs → MORNING-UAT "Manual verification" (excluded from GREEN): true `pkill -9 Obsidian` check (MT-013, dovetails with Phase 1's MT-016 run), hours-scale idle survival.
 - Bookkeeping: BUG-004 removed from known-bugs.md (BUG-002 cross-ref updated), MT-013 false "launchd reaps ≤5s" expectation corrected, PROTOCOL.md lifecycle documents parent-death behavior, meta-plan Phase 3 gained "Notes from Phase 2" (Shutdown seam unchanged; broken-stderr panic constrains teardown rework; reusable WS harness).
 - result: green, 1 gate cycle (inner TDD loop took two passes — see discovery), commits 52e5811 (brief) → 8808957 (watchdog + tests GREEN) → completion/bookkeeping commit. GREEN gate: unit 234/234 (27 files), e2e 13/13 spec files, `cargo test --release` 7/7, clippy clean. No flakes; no leaked test processes. Live-box orphans predating the fix left alone per triage.
+
+## Phase: Phase 3 — SIGTERM latency under WS flood (BUG-002) — triage
+
+- Ran `/phase-triage` unattended (skill loaded from disk at `~/.claude/skills/dev-workflow/skills/phase-triage/SKILL.md`; not registered with the Skill tool in this session — proceeded from the on-disk copy).
+- [RESOLVED-AUTO] Plan-mode entry and present-for-sign-off steps skipped per autonomy contract; triage artifact written directly.
+- Recommendation: **C — Spec + TDD** (`specs/anvil/bug-sweep/phase-3-sigterm-latency-triage.md`). The outcome is a directly measurable latency budget with an existing standalone harness pattern (Phase 2's `parent-death-watchdog.test.ts`); the anchor/variant/pin tests are identical under all three candidate fix paths in known-bugs.md, so the tests are the spec. Every constraint tests can't encode is already written upstream (meta-plan "Notes from Phase 2", BUG-002 fix paths) — a brief would be a third restatement. Next: `/phase-exec Phase 3` (Mode B, no brief step; triage carries the test plan).
+- [RESOLVED-AUTO] Fix-path choice (force-close sink vs writer-task+bounded-channel vs pre-send check) left to the executor's red→green cycle — all internal, reversible, test-identical; meta-plan deliberately deferred it. Not a park item.
+- [RESOLVED-AUTO] AC3 budget decision (tighten 3s→1s vs keep) stays with the executor per the meta-plan's own decision rule (≥10 mixed-load runs, measured distribution in the completion report). Partial closure (amend BUG-002 instead of removing) is a sanctioned outcome.
+- [RESOLVED-AUTO] Artifact slug `phase-3-sigterm-latency-triage.md` derived from meta-plan phase title.
+- Nothing parked; no dependency or contract surface is touched by any candidate path.
