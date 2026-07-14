@@ -16,6 +16,12 @@ use tokio_tungstenite::tungstenite::Message;
 
 use protocol::{ClientMessage, ServerMessage};
 
+/// Upper bound on the end-of-session WS goodbye (Exit message + Close
+/// frame + sink close). Generous for a live localhost peer, small enough
+/// that a broken peer cannot push SIGTERM-to-exit over its sub-second
+/// budget (BUG-002).
+const WS_GOODBYE_BUDGET: Duration = Duration::from_millis(250);
+
 #[derive(Parser, Debug)]
 #[command(name = "pty-server", about = "PTY-over-WebSocket server (Phase 2a spike)")]
 struct Args {
@@ -395,8 +401,26 @@ async fn handle_client(
                 match chunk {
                     Some(bytes) => {
                         let msg = ServerMessage::Output(bytes).to_json();
-                        if ws_sink.send(Message::Text(msg.into())).await.is_err() {
-                            break Ok(());
+                        // BUG-002: an in-flight send to a dead peer can park
+                        // this await for seconds (TCP drain), and a connected
+                        // peer that stopped reading (zero window) parks it
+                        // indefinitely — either way the outer select never
+                        // gets to observe shutdown. Race the send against the
+                        // sticky Shutdown seam so SIGTERM/parent-death breaks
+                        // the loop immediately; the abandoned frame is
+                        // acceptable loss on the way out, and the teardown
+                        // goodbye below is time-bounded for the same reason.
+                        tokio::select! {
+                            biased;
+                            _ = shutdown.wait() => {
+                                tracing::info!("shutdown notified during in-flight ws send");
+                                break Ok(());
+                            }
+                            sent = ws_sink.send(Message::Text(msg.into())) => {
+                                if sent.is_err() {
+                                    break Ok(());
+                                }
+                            }
                         }
                     }
                     None => {
@@ -458,6 +482,13 @@ async fn handle_client(
         let _ = killer.kill();
     }
 
+    // Unblock the PTY reader if it is parked in blocking_send on a full
+    // channel — nothing drains the channel once the loop has broken, so
+    // under flood the reader would otherwise sit blocked until the 1s
+    // timeout below expires on every shutdown (BUG-002). Dropping the
+    // receiver fails that send immediately.
+    drop(out_rx);
+
     // Give the wait task up to 1s to observe the exit, then move on.
     let _ = tokio::time::timeout(Duration::from_secs(1), async {
         let _ = reader_handle.await;
@@ -475,9 +506,16 @@ async fn handle_client(
             None => ServerMessage::Exit { status: None, signal: None },
         }
     };
-    let _ = ws_sink.send(Message::Text(exit_msg.to_json().into())).await;
-    let _ = ws_sink.send(Message::Close(None)).await;
-    let _ = ws_sink.close().await;
+    // Best-effort protocol goodbye, time-bounded: a live peer completes
+    // this in microseconds, while a dead or zero-window peer must never be
+    // able to stall process exit on it (BUG-002). Losing the goodbye on a
+    // broken peer is acceptable — the peer is gone either way.
+    let _ = tokio::time::timeout(WS_GOODBYE_BUDGET, async {
+        let _ = ws_sink.send(Message::Text(exit_msg.to_json().into())).await;
+        let _ = ws_sink.send(Message::Close(None)).await;
+        let _ = ws_sink.close().await;
+    })
+    .await;
 
     session_result
 }
