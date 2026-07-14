@@ -71,3 +71,22 @@ describe("undocumented Obsidian API surface (AC4 / R4 / R5)", () => {
     expect(src).toMatch(/export function canWrap/);
   });
 });
+
+describe("undocumented xterm API surface (BUG-003)", () => {
+  // Same convention as the Obsidian surface above, different vendor:
+  // the BUG-003 corrective settle-fit must force a char-size re-measure
+  // through xterm's private _core._charSizeService (fit() alone reads the
+  // render service's cached cell dims and no-ops at unchanged container
+  // size). The seam is feature-detected so an xterm upgrade that moves it
+  // degrades to the pre-fix behavior instead of crashing. Runtime coverage
+  // (does the seam still WORK against the pinned xterm) is carried by
+  // tests/e2e/bug-003-first-fit.e2e.ts; this pins the static surface —
+  // that we still call it, and that we still guard it.
+  it("_core._charSizeService.measure is referenced + feature-detected in xterm-host.ts", () => {
+    const src = readSrc("src/terminal/xterm-host.ts");
+    expect(src).toMatch(/_charSizeService/);
+    expect(src).toMatch(
+      /typeof\s+core\?\._charSizeService\?\.measure\s*===\s*["']function["']/,
+    );
+  });
+});

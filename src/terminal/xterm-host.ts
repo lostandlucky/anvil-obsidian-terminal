@@ -3,6 +3,7 @@ import type { ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { createFitCoalescer } from "./fit-coalescer";
+import { scheduleSettleFit, SettleFitHandle } from "./settle-fit";
 import { tryLoadWebgl } from "./webgl-loader";
 
 export interface XtermHost {
@@ -80,6 +81,7 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
 
   let resizeObserver: ResizeObserver | null = null;
   let mountEl: HTMLElement | null = null;
+  let settleFit: SettleFitHandle | null = null;
 
   const tryFitForDimensions = (width: number, height: number): void => {
     if (!coalescer.shouldFit({ width, height })) return;
@@ -87,6 +89,36 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
       fit.fit();
     } catch {
       /* container may be zero-sized on first paint, or dispose mid-flight */
+    }
+  };
+
+  // BUG-003: the mount-time fit can measure cell metrics before the layout
+  // engine has flowed a freshly-registered FontFace (the bundled Symbols
+  // Nerd Font Mono registers in the plugin's onload, but there's a
+  // one-frame lag before pending nodes re-flow with its metrics), so the
+  // first cols/rows reported to the PTY can be off by 1-2 and full-width
+  // TUIs hard-wrap mid-word. FitAddon.fit()/proposeDimensions() read the
+  // render service's CACHED cell dims — at unchanged container size a bare
+  // corrective fit recomputes the same stale cols and silently no-ops — so
+  // the corrective pass must force a fresh char-size measurement first.
+  // _core._charSizeService is undocumented xterm internals: feature-detect
+  // and degrade to the bare fit (pre-fix behavior) if the seam moves.
+  // Steady-state churn guard is carried by xterm itself: measure() fires
+  // no event when metrics are unchanged, and fit() only calls resize()
+  // when the proposed cols/rows differ — so when the bundled font is
+  // absent or already flowed this pass produces zero resize events.
+  const remeasureCellSize = (): void => {
+    try {
+      const core = (
+        terminal as unknown as {
+          _core?: { _charSizeService?: { measure?: () => void } };
+        }
+      )._core;
+      if (typeof core?._charSizeService?.measure === "function") {
+        core._charSizeService.measure();
+      }
+    } catch {
+      /* degrade to the bare fit below */
     }
   };
 
@@ -106,7 +138,28 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
       // captures pixels via wdio's browser.takeElementScreenshot, which
       // works regardless of this flag.
       tryLoadWebgl({ terminal, factory: () => new WebglAddon() });
+      // The first fit stays synchronous: TerminalContainerView.addTab reads
+      // terminal.cols/rows right after mount() for the PTY spawn dims —
+      // deferring it re-creates the mid-startup SIGWINCH / PROMPT_EOL_MARK
+      // regression documented there.
       tryFitForDimensions(container.clientWidth, container.clientHeight);
+      // BUG-003: corrective settle pass once fonts have flowed. Goes through
+      // the coalescer-bypassing direct fit — the container dims are
+      // unchanged, so tryFitForDimensions would suppress it.
+      settleFit = scheduleSettleFit({
+        fontsReady: () => document.fonts.ready,
+        requestFrame: (cb) => {
+          requestAnimationFrame(cb);
+        },
+        onSettle: () => {
+          remeasureCellSize();
+          try {
+            fit.fit();
+          } catch {
+            /* container may be zero-sized, or dispose mid-flight */
+          }
+        },
+      });
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const rect = entry.contentRect;
@@ -144,6 +197,8 @@ export function createXtermHost(options: XtermHostOptions = {}): XtermHost {
       terminal.options.fontSize = fontSize;
     },
     dispose() {
+      settleFit?.cancel();
+      settleFit = null;
       if (resizeObserver && mountEl) {
         resizeObserver.unobserve(mountEl);
         resizeObserver.disconnect();
