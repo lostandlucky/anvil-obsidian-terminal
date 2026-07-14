@@ -259,10 +259,13 @@ describe("phase-3 hygiene (FI-018)", function () {
     );
   });
 
-  // AC3 — close-while-active. Budget relaxed from 1s → 3s on 2026-04-29
-  // pending a structural fix for the SIGTERM-vs-WS-flood race documented
-  // as BUG-002 in specs/anvil/known-bugs.md.
-  it("AC3: closing a tab during heavy output kills its shell within 3s", async function () {
+  // AC3 — close-while-active. Budget was relaxed 1s → 3s on 2026-04-29 for
+  // the SIGTERM-vs-WS-flood race (BUG-002); re-tightened to 1s on
+  // 2026-07-14 after the structural fix (pty-server races in-flight WS
+  // sends against shutdown and bounds its teardown goodbye) held a
+  // 24-run mixed-load distribution at max 271ms — see
+  // tests/unit/sigterm-latency.test.ts.
+  it("AC3: closing a tab during heavy output kills its shell within 1s", async function () {
     await openTerminal();
     await focusTerminal();
     await waitForShellReady();
@@ -288,12 +291,11 @@ describe("phase-3 hygiene (FI-018)", function () {
     // Close all terminal leaves while output is streaming.
     await closeAllTerminalLeaves();
 
-    // Within 3 seconds, the shell PID must be dead. Poll up to 3s; the
-    // assertion is "dead by 3s," not "dead immediately." See BUG-002 for
-    // why 1s was too tight under WS-flood conditions.
+    // Within 1 second, the shell PID must be dead. Poll up to 1s; the
+    // assertion is "dead by 1s," not "dead immediately."
     const start = Date.now();
     let alive = true;
-    while (Date.now() - start < 3000 && alive) {
+    while (Date.now() - start < 1000 && alive) {
       alive = await pidAlive(pid as number);
       if (!alive) break;
       await browser.pause(50);

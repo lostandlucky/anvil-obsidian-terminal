@@ -284,8 +284,9 @@ describe("parent-death watchdog (BUG-004)", () => {
     "SIGTERM still shuts pty-server down cleanly (normal close path unchanged)",
     async () => {
       // Regression pin: the watchdog adds a shutdown *source*; the existing
-      // signal path must behave exactly as before. Budget matches the
-      // documented BUG-002 number (3s) — tightening it is Phase 3's job.
+      // signal path must behave exactly as before. Budget aligned with the
+      // sub-second SIGTERM guarantee once BUG-002 was fixed (2026-07-14,
+      // bug-sweep Phase 3 — see tests/unit/sigterm-latency.test.ts).
       const server = spawn(BINARY, SERVER_ARGS, { stdio: ["ignore", "pipe", "pipe"] });
       cleanupPids.add(server.pid!);
       const out = collectOutput(server);
@@ -293,8 +294,8 @@ describe("parent-death watchdog (BUG-004)", () => {
 
       process.kill(server.pid!, "SIGTERM");
       expect(
-        await waitUntil(() => !isAlive(server.pid!), 3000),
-        "pty-server did not exit within 3s of SIGTERM",
+        await waitUntil(() => !isAlive(server.pid!), 1000),
+        "pty-server did not exit within 1s of SIGTERM",
       ).toBe(true);
     },
     30_000,
