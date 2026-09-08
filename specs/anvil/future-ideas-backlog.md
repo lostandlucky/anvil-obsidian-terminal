@@ -207,3 +207,47 @@ On Windows and Linux, there's no separation. **Both Obsidian and the shell want 
 - **Loading strategy.** `font-display: block` (wait briefly for the icon font before showing tofu) vs `font-display: swap` (show tofu briefly, swap when font loads). `block` matches a terminal's expectation of stable rendering; the load is fast enough that the user shouldn't notice.
 
 **Origin:** 2026-04-27 dogfooding session — user asked "why does it just work in iTerm2?" The answer (CSS-layer symbol fallback) is what this FI implements.
+
+## FI-023: Agent-activity notifications via terminal OSC sequences
+**Value we hope to achieve:** A terminal running Claude Code (or any agent CLI) in a background tab surfaces "finished" / "needs input" as a visible badge on that tab, so the user doesn't have to poll every dock instance to see which one is waiting on them. Today all terminal instances look identical whether idle, running, or blocked on a prompt.
+
+**The mechanism.** Terminal apps (iTerm2, Windows Terminal, and cmux, per its OSC 9/99/777 handling) pick up standard OSC escape sequences that agent CLIs or shell hooks can emit to signal "notify the user." xterm.js supports custom OSC handlers via `registerOscHandler`, so the plugin can listen for these sequences without any PTY-backend changes — this is a renderer-side addition only.
+
+**Scope candidates:**
+- Register an OSC handler in `xterm-host.ts` for the common notification sequences (OSC 9, OSC 777, iTerm2's OSC 1337 variants).
+- Surface a badge/highlight on the owning tab or dock instance when a notification fires; clear it on focus.
+- Document a Claude Code hook recipe (or ship one) that emits the OSC sequence on Stop/Notification hook events, mirroring how cmux wires its own CLI into agent hooks.
+
+**Open design questions:**
+- Badge only, or also an Obsidian native notice/toast for background instances?
+- Where does this live once FI-014 (tabbed pane) ships — badge on the tab strip is the natural home, so likely sequence after or alongside FI-014.
+
+**Origin:** cmux architecture comparison discussion, 2026-07-17.
+
+## FI-024: Per-instance session metadata in the picker/dock chrome
+**Value we hope to achieve:** With multiple terminal instances open, the user can tell them apart at a glance — which one is on which git branch, which cwd, which tmux session — instead of clicking into each to check. cmux's sidebar shows git branch, working directory, and PR status per workspace tab; the equivalent here is metadata on each Anvil terminal instance's tab/header.
+
+**Scope candidates:**
+- Surface cwd and (if inside a git repo) current branch in the tab/header label or a hover tooltip.
+- Surface the attached tmux session name when running in tmux-attach mode.
+- Refresh on a reasonable interval or on shell prompt events, not a tight poll.
+
+**Open design questions:**
+- Cheapest data source for branch/cwd without shelling out on every render — likely read once at spawn and refresh on OSC 7 (cwd) / OSC-driven updates rather than polling.
+- Natural home is the same tab chrome FI-014 introduces — worth sequencing together rather than bolting metadata onto the current chromeless dock.
+
+**Origin:** cmux architecture comparison discussion, 2026-07-17.
+
+## FI-025: Scriptable control surface for terminal instances
+**Value we hope to achieve:** Scripts, Obsidian commands, or Claude Code itself can open, address, and send input to specific Anvil terminal instances programmatically, rather than only through manual clicks in the picker. cmux exposes this as a Unix socket API driving workspace/pane control and browser automation; the Anvil equivalent would be scoped to what's useful inside Obsidian — e.g. an Obsidian command or `app.plugins.plugins['anvil-obsidian-terminal']` surface that other plugins or automation scripts could call.
+
+**Scope candidates:**
+- A minimal internal API: list instances, open a new one with a given profile/cwd, send text to a given instance.
+- Exposed via Obsidian's command palette (for user-triggered automation) and/or a plugin-to-plugin API surface.
+- Out of scope initially: a standalone Unix socket listener — that's cmux's answer for driving a native app from outside its process; inside Obsidian's plugin model, an in-process API is the equivalent and far less work.
+
+**Open design questions:**
+- Real demand vs. speculative — no current workflow has asked for this. Lower priority than FI-023/FI-024 until a concrete use case shows up (e.g. wanting Claude Code in Obsidian to spawn a scratch terminal for a subtask).
+- Security/scope: an in-process API other plugins can call is a bigger surface to keep stable than internal-only code — worth deferring until the core plugin API (FI-015 settings, FI-014 chrome) has settled.
+
+**Origin:** cmux architecture comparison discussion, 2026-07-17.
