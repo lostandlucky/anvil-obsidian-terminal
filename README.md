@@ -99,3 +99,11 @@ That's it. If any of those steps misbehave, see the troubleshooting notes at the
 - No popout support. Dragging the terminal into its own Obsidian window isn't supported; the PTY is bound to the main window's renderer process.
 - macOS arm64 only. See [ADR 0001](docs/adr/0001-macos-arm64-only.md).
 - Manual install only. No community plugin store submission. See [ADR 0002](docs/adr/0002-manual-install-only.md).
+- The PTY backend has no authentication. `bin/pty-server` binds an ephemeral port on `127.0.0.1` and any local process that connects to it can drive a spawned shell. The trust boundary is the local machine — the same boundary that already lets any process running as you spawn a shell. See [pty-server/PROTOCOL.md](pty-server/PROTOCOL.md) for the full threat model.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+The bundled `SymbolsNerdFontMono.woff2` glyph font is separately MIT licensed by
+its author; see [src/fonts/LICENSE](src/fonts/LICENSE).

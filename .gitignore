@@ -20,6 +20,9 @@ dist/
 /anvil-obsidian-terminal-v*.zip
 /anvil-obsidian-terminal-v*.zip.sha256
 
+# E2E diagnostic captures (screenshots written during test runs)
+tests/e2e/.diagnostic/
+
 # macOS Finder metadata
 .DS_Store
 **/.DS_Store

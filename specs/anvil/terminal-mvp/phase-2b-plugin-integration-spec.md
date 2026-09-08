@@ -52,7 +52,7 @@ Binary pass/fail. Each maps to a test or a named manual step.
 
 ## User testing
 
-After `npm install && npm run build` and reinstalling the plugin into a throwaway test vault (**not Vaultnacious-v2** — the Phase 1 caveat still applies):
+After `npm install && npm run build` and reinstalling the plugin into a throwaway test vault (**not your real vault** — the Phase 1 caveat still applies):
 
 1. **First-run quarantine fix:** if Gatekeeper blocks the binary, run `xattr -d com.apple.quarantine path/to/pty-server`. (Document the path in completion notes. Phase 4 will do this properly.)
 2. **Open a terminal** — Cmd-P → "Open terminal". Pane should appear with whatever your shell's actual prompt is (zsh `%`, bash `$`, etc.) — *not* the mock `mock>` prompt.

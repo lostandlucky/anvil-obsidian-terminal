@@ -49,7 +49,7 @@ Full suite runtime: ~5s (after Obsidian binary cached).
 
 ## User testing
 
-After `npm install && npm run build`, symlink or copy the plugin dir into a test vault (**not Vaultnacious-v2** — see caveat below) and reload the vault. Then:
+After `npm install && npm run build`, symlink or copy the plugin dir into a test vault (**not your real vault** — see caveat below) and reload the vault. Then:
 
 1. **Open a terminal** — Cmd-P → "Open terminal". A pane should appear with a welcome banner ("Obsidian Terminal (mock REPL)") in cyan/yellow and a green `mock>` prompt.
 2. **Type commands**:
@@ -63,7 +63,7 @@ After `npm install && npm run build`, symlink or copy the plugin dir into a test
 5. **Move the pane** — drag the terminal tab to a new split position. It should either survive or cleanly reinitialize (close/reopen is also fine).
 6. **Close and reopen** — close the pane, Cmd-P → "Open terminal". Should work with no console errors and a fresh welcome banner.
 
-**Do NOT install into Vaultnacious-v2.** The plugin has only been validated against the fixture vault at `tests/e2e/fixtures/vault/`. Use a throwaway vault for manual testing.
+**Do NOT install into your real vault.** The plugin has only been validated against the fixture vault at `tests/e2e/fixtures/vault/`. Use a throwaway vault for manual testing.
 
 ## How the hotkey guard actually works
 

@@ -116,7 +116,7 @@ suite (`ps -eo pid,comm | grep "pty-server$"` is empty).
 ## User testing
 
 After `npm install && npm run build` and reinstalling the plugin into a
-**throwaway test vault** (not Vaultnacious-v2 — the Phase 1 caveat still
+**throwaway test vault** (not your real vault — the Phase 1 caveat still
 applies), copy `main.js`, `manifest.json`, `styles.css`, **and the
 `bin/` directory** into the plugin folder. The binary path the plugin
 expects is `<plugin dir>/bin/pty-server`.
