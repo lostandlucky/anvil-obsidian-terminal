@@ -20,6 +20,10 @@ dist/
 /anvil-obsidian-terminal-v*.zip
 /anvil-obsidian-terminal-v*.zip.sha256
 
+# Autopilot run artifacts — transient per-run working docs, not repo content
+/OVERNIGHT-LOG.md
+/MORNING-UAT.md
+
 # E2E diagnostic captures (screenshots written during test runs)
 tests/e2e/.diagnostic/
 
