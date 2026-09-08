@@ -31,7 +31,7 @@
     "mocha": "11.7.5",
     "obsidian": "1.12.3",
     "pngjs": "^7.0.0",
-    "tsx": "4.21.0",
+    "tsx": "4.23.13",
     "typescript": "6.0.3",
     "vitest": "4.1.5",
     "wdio-obsidian-reporter": "3.0.2",
