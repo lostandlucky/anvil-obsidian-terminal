@@ -29,7 +29,7 @@
     "builtin-modules": "5.1.0",
     "esbuild": "0.28.0",
     "mocha": "11.7.5",
-    "obsidian": "1.12.3",
+    "obsidian": "1.14.4",
     "pngjs": "^7.0.0",
     "tsx": "4.21.0",
     "typescript": "6.0.3",
